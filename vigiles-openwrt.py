@@ -10,11 +10,12 @@
 #
 # This source is released under the MIT License.
 #
-###############################################################################
+#######################################################################################
 
 
 """
-usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_NAME]
+usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
+                          [-K LLKEY]
 
 optional arguments:
   -h, --help                show this help message and exit
@@ -25,10 +26,12 @@ optional arguments:
   -D, --enable-debug        Enable Debug Output
   -I, --write-intermediate
                             Save Intermediate JSON Dictionaries
-  -N  MANIFEST_NAME, --name MANIFEST_NAME
-                            Custom Manifest name
+  -N  MANIFEST_REPORT_NAME, --name MANIFEST_REPORT_NAME
+                            Custom Manifest/Report name
+  -K  LLKEY, --keyfile LLKEY
+                            Path of LinuxLink credentials file
 """
-###########################################################################
+#######################################################################################
 
 
 import argparse
@@ -39,6 +42,7 @@ import json
 from lib.openwrt import get_config_options
 from lib.manifest import write_manifest
 import lib.packages as packages
+from lib.checkcves import vigiles_request
 from lib.kernel_uboot import get_kernel_info, get_uboot_info
 
 from lib.utils import set_debug
@@ -74,7 +78,12 @@ def parse_args():
         help="Custom Manifest Name",
         default="",
     )
-
+    parser.add_argument(
+        "-K",
+        "--keyfile",
+        dest="llkey",
+        help="Location of LinuxLink credentials file"
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -84,6 +93,7 @@ def parse_args():
         "bdir": args.bdir.strip() if args.bdir else None,
         "odir": args.odir.strip() if args.odir else None,
         "manifest_name": args.manifest_name.strip(),
+        "llkey": args.llkey.strip() if args.llkey else "",
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -118,10 +128,20 @@ def collect_metadata(vgls):
         get_uboot_info(vgls)
 
 
+def run_check(vgls):
+    vgls_chk = {
+        "keyfile": vgls.get("llkey", ""),
+        "manifest": vgls.get("manifest", ""),
+        "report": vgls.get("report", ""),
+    }
+    vigiles_request(vgls_chk)
+
+
 def __main__():
     vgls = parse_args()
     collect_metadata(vgls)
     write_manifest(vgls)
+    run_check(vgls)
 
 
 __main__()
