@@ -361,6 +361,7 @@ def vigiles_request(vgls_chk):
         "subscribe": False,
         "product_token": vgls_creds.get("product", ""),
         "folder_token": vgls_creds.get("folder", ""),
+        "upload_only": upload_only,
     }
 
     print("Vigiles: Requesting image analysis from LinuxLink ...\n", file=sys.stderr)

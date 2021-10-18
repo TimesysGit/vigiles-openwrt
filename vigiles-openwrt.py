@@ -15,14 +15,16 @@
 
 """
 usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
-                          [-K LLKEY] [-C LLDASHBOARD]
+                          [-K LLKEY] [-C LLDASHBOARD] [-U]
 
 Arguments:
   -h, --help                show this help message and exit
+
   -b BDIR, --build BDIR
                             OpenWrt Build Directory
   -o ODIR, --output ODIR
                             Vigiles Output Directory
+
   -D, --enable-debug        Enable Debug Output
   -I, --write-intermediate
                             Save Intermediate JSON Dictionaries
@@ -32,6 +34,7 @@ Arguments:
                             Path of LinuxLink credentials file
   -C LLDASHBOARD, --dashboard-config LLDASHBOARD
                             Path of LinuxLink Dashboard Config file
+  -U, --upload-only         Upload the manifest only; do not generate CVE report.
 """
 #######################################################################################
 
@@ -92,6 +95,14 @@ def parse_args():
         dest="lldashboard",
         help="Location of LinuxLink Dashboard Config file",
     )
+    parser.add_argument(
+        "-U",
+        "--upload-only",
+        dest="upload_only",
+        help="Upload the manifest only; do not wait for report.",
+        action="store_true",
+        default=False,
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -103,6 +114,7 @@ def parse_args():
         "manifest_name": args.manifest_name.strip(),
         "llkey": args.llkey.strip() if args.llkey else "",
         "lldashboard": args.lldashboard.strip() if args.lldashboard else "",
+        "upload_only": args.upload_only,
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -143,6 +155,7 @@ def run_check(vgls):
         "manifest": vgls.get("manifest", ""),
         "report": vgls.get("report", ""),
         "dashboard": vgls.get("lldashboard", ""),
+        "upload_only": vgls.get("upload_only", False),
     }
     vigiles_request(vgls_chk)
 
