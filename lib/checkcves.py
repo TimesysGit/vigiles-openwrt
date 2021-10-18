@@ -340,6 +340,8 @@ def vigiles_request(vgls_chk):
 
     manifest_path = vgls_chk.get("manifest", "")
     report_path = vgls_chk.get("report", "")
+    kconfig_path = vgls_chk.get("kconfig", "")
+    uconfig_path = vgls_chk.get("uconfig", "")
     upload_only = vgls_chk.get("upload_only", False)
 
     if report_path:
@@ -356,6 +358,38 @@ def vigiles_request(vgls_chk):
         print("No packages found in manifest.\n")
         sys.exit(1)
 
+    # If -k is specified, the given config file is submitted along with the
+    # manifest to filter out irrelevant kernel CVEs
+    if not kconfig_path:
+        kernel_config = ""
+    else:
+        try:
+            with open(kconfig_path, "r") as kconfig:
+                kernel_config = kconfig.read().strip()
+        except (OSError, IOError, UnicodeDecodeError) as e:
+            print("Error: Could not open kernel config: %s" % e)
+            sys.exit(1)
+        print(
+            "Vigiles: Kernel Config based filtering has been applied from %s"
+            % kconfig_path,
+            file=sys.stderr,
+        )
+
+    # U-Boot and SPL filtering works the same way as kernel config filtering
+    if not uconfig_path:
+        uboot_config = ""
+    else:
+        try:
+            with open(uconfig_path, "r") as uconfig:
+                uboot_config = uconfig.read().strip()
+        except (OSError, IOError, UnicodeDecodeError) as e:
+            print("Error: Could not open U-Boot config: %s" % e)
+            sys.exit(1)
+        print(
+            "Vigiles: U-Boot Config based filtering has been applied %s" % uconfig_path,
+            file=sys.stderr,
+        )
+
     request = {
         "manifest": manifest_data,
         "subscribe": False,
@@ -363,6 +397,12 @@ def vigiles_request(vgls_chk):
         "folder_token": vgls_creds.get("folder", ""),
         "upload_only": upload_only,
     }
+
+    if kernel_config:
+        request["kernel_config"] = kernel_config
+
+    if uboot_config:
+        request["uboot_config"] = uboot_config
 
     print("Vigiles: Requesting image analysis from LinuxLink ...\n", file=sys.stderr)
 

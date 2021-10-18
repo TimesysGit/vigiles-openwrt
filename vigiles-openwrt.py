@@ -15,7 +15,7 @@
 
 """
 usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
-                          [-K LLKEY] [-C LLDASHBOARD] [-U]
+                          [-K LLKEY] [-C LLDASHBOARD] [-U] [-k KCONFIG] [-u UCONFIG]
 
 Arguments:
   -h, --help                show this help message and exit
@@ -35,6 +35,10 @@ Arguments:
   -C LLDASHBOARD, --dashboard-config LLDASHBOARD
                             Path of LinuxLink Dashboard Config file
   -U, --upload-only         Upload the manifest only; do not generate CVE report.
+  -k KCONFIG, --kernel-config KCONFIG
+                            Custom Kernel Config to Use
+  -u UCONFIG, --uboot-config UCONFIG
+                            Custom U-Boot Config to Use
 """
 #######################################################################################
 
@@ -103,6 +107,18 @@ def parse_args():
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "-k",
+        "--kernel-config",
+        dest="kconfig",
+        help="Custom Kernel Config to Use"
+    )
+    parser.add_argument(
+        "-u",
+        "--uboot-config",
+        dest="uconfig",
+        help="Custom U-Boot Config(s) to Use"
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -115,6 +131,8 @@ def parse_args():
         "llkey": args.llkey.strip() if args.llkey else "",
         "lldashboard": args.lldashboard.strip() if args.lldashboard else "",
         "upload_only": args.upload_only,
+        "kconfig": args.kconfig.strip() if args.kconfig else "auto",
+        "uconfig": args.uconfig.strip() if args.uconfig else "auto",
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -150,12 +168,24 @@ def collect_metadata(vgls):
 
 
 def run_check(vgls):
+    kconfig_path = ""
+    _kconfig = vgls.get("kconfig", "none")
+    if _kconfig != "none" and os.path.exists(_kconfig):
+        kconfig_path = _kconfig
+
+    uconfig_path = ""
+    _uconfig = vgls.get("uconfig", "none")
+    if _uconfig != "none" and os.path.exists(_uconfig):
+        uconfig_path = _uconfig
+
     vgls_chk = {
         "keyfile": vgls.get("llkey", ""),
         "manifest": vgls.get("manifest", ""),
         "report": vgls.get("report", ""),
         "dashboard": vgls.get("lldashboard", ""),
         "upload_only": vgls.get("upload_only", False),
+        "kconfig": kconfig_path,
+        "uconfig": uconfig_path,
     }
     vigiles_request(vgls_chk)
 
