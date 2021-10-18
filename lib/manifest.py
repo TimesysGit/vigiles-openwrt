@@ -17,6 +17,8 @@ import time
 from .utils import mkdirhier
 from .utils import dbg, info, warn
 
+from .amendments import amend_manifest
+
 
 VIGILES_DEFAULT_DISTRO = "openwrt"
 VIGILES_DEFAULT_IMAGE = "rootfs"
@@ -90,6 +92,8 @@ def _report_name(vgls, manifest_dict):
 
 def write_manifest(vgls):
     final = _init_manifest(vgls)
+
+    amend_manifest(vgls, final)
 
     vgls["manifest"] = _manifest_name(vgls, final)
     vgls["report"] = _report_name(vgls, final)

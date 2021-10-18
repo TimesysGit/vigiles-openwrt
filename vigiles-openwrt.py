@@ -16,6 +16,7 @@
 """
 usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
                           [-K LLKEY] [-C LLDASHBOARD] [-U] [-k KCONFIG] [-u UCONFIG]
+                          [-A ADDL]
 
 Arguments:
   -h, --help                show this help message and exit
@@ -39,6 +40,8 @@ Arguments:
                             Custom Kernel Config to Use
   -u UCONFIG, --uboot-config UCONFIG
                             Custom U-Boot Config to Use
+  -A ADDL, --additional-packages ADDL
+                            File of Additional Packages to Include
 """
 #######################################################################################
 
@@ -119,6 +122,12 @@ def parse_args():
         dest="uconfig",
         help="Custom U-Boot Config(s) to Use"
     )
+    parser.add_argument(
+        "-A",
+        "--additional-packages",
+        dest="addl",
+        help="File of Additional Packages to Include",
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -133,6 +142,7 @@ def parse_args():
         "upload_only": args.upload_only,
         "kconfig": args.kconfig.strip() if args.kconfig else "auto",
         "uconfig": args.uconfig.strip() if args.uconfig else "auto",
+        "addl": args.addl.strip() if args.addl else "",
     }
 
     if not os.path.exists(vgls.get("bdir")):
