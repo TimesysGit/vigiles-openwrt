@@ -279,6 +279,10 @@ def _get_credentials(vgls_chk):
     kf_param = vgls_chk.get("keyfile", "")
     kf_default = os.path.join(timesys_dir, "linuxlink_key")
 
+    dc_env = os.getenv("VIGILES_DASHBOARD_CONFIG", "")
+    dc_param = vgls_chk.get("dashboard", "")
+    dc_default = os.path.join(timesys_dir, "dashboard_config")
+
     if kf_env:
         print("Vigiles: Using LinuxLink Key from Environment: %s" % kf_env)
         key_file = kf_env
@@ -289,10 +293,23 @@ def _get_credentials(vgls_chk):
         print("Vigiles: Trying LinuxLink Key Default: %s" % kf_default)
         key_file = kf_default
 
+    if dc_env:
+        print("Vigiles: Using Dashboard Config from Environment: %s" % dc_env)
+        dashboard_config = dc_env
+    elif dc_param:
+        print("Vigiles: Using Dashboard Config Configuration: %s" % dc_param)
+        dashboard_config = dc_param
+    else:
+        print("Vigiles: Trying Dashboard Config Default: %s" % dc_default)
+        dashboard_config = dc_default
+
     vgls_chk["keyfile"] = key_file
+    vgls_chk["dashboard"] = dashboard_config
 
     try:
         email, key = ll.read_keyfile(key_file)
+        # It is fine if either of these are none, they will just default
+        dashboard_tokens = ll.read_dashboard_config(dashboard_config)
     except Exception as e:
         print("Error: %s\n" % e)
         print(get_usage())
@@ -301,6 +318,8 @@ def _get_credentials(vgls_chk):
     vgls_creds = {
         "email": email,
         "key": key,
+        "product": dashboard_tokens.get("product", ""),
+        "folder": dashboard_tokens.get("folder", ""),
     }
     return vgls_creds
 
@@ -340,6 +359,8 @@ def vigiles_request(vgls_chk):
     request = {
         "manifest": manifest_data,
         "subscribe": False,
+        "product_token": vgls_creds.get("product", ""),
+        "folder_token": vgls_creds.get("folder", ""),
     }
 
     print("Vigiles: Requesting image analysis from LinuxLink ...\n", file=sys.stderr)
