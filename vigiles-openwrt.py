@@ -14,7 +14,7 @@
 
 
 """
-usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I]
+usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_NAME]
 
 optional arguments:
   -h, --help                show this help message and exit
@@ -25,6 +25,8 @@ optional arguments:
   -D, --enable-debug        Enable Debug Output
   -I, --write-intermediate
                             Save Intermediate JSON Dictionaries
+  -N  MANIFEST_NAME, --name MANIFEST_NAME
+                            Custom Manifest name
 """
 ###########################################################################
 
@@ -65,6 +67,13 @@ def parse_args():
         help="Save Intermediate JSON Dictionaries",
         action="store_true",
     )
+    parser.add_argument(
+        "-N",
+        "--name",
+        dest="manifest_name",
+        help="Custom Manifest Name",
+        default="",
+    )
 
     args = parser.parse_args()
 
@@ -74,6 +83,7 @@ def parse_args():
         "write_intm": args.write_intm,
         "bdir": args.bdir.strip() if args.bdir else None,
         "odir": args.odir.strip() if args.odir else None,
+        "manifest_name": args.manifest_name.strip(),
     }
 
     if not os.path.exists(vgls.get("bdir")):
