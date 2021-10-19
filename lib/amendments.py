@@ -84,7 +84,53 @@ def _get_addl_packages(extra_csv):
     return additional
 
 
+def _get_excld_packages(excld_csv):
+    if not excld_csv:
+        return []
+
+    if not os.path.exists(excld_csv):
+        warn("Skipping Non-Existent exclude-package File: %s" % excld_csv)
+        return []
+
+    dbg("Importing Excluded Packages from %s" % excld_csv)
+
+    excld_pkgs = set()
+    try:
+        with open(excld_csv) as csv_in:
+            reader = csv.reader(csv_in)
+            for row in reader:
+                if not len(row):
+                    continue
+                if row[0].startswith("#"):
+                    continue
+
+                pkg = row[0].strip().lower()
+                excld_pkgs.add(pkg.replace(" ", "-"))
+    except Exception as e:
+        warn("exclude-packages: %s" % e)
+        return []
+
+    dbg("Requested packages to exclude: %s" % list(excld_pkgs))
+    return list(excld_pkgs)
+
+
+def _filter_excluded_packages(vgls_pkgs, excld_pkgs):
+    if not excld_pkgs or not vgls_pkgs:
+        return
+
+    pkg_matches = list(
+        set([k for k, v in vgls_pkgs.items() if v["name"] in excld_pkgs])
+    )
+
+    info("Vigiles: Excluding Packages: %s" % sorted(pkg_matches))
+    for pkg_key in pkg_matches:
+        vgls_pkgs.pop(pkg_key)
+
+
 def amend_manifest(vgls, manifest):
     addl_pkgs = _get_addl_packages(vgls["addl"])
     if addl_pkgs:
         manifest.update(addl_pkgs)
+
+    excld_pkgs = _get_excld_packages(vgls["excld"])
+    _filter_excluded_packages(manifest["packages"], excld_pkgs)

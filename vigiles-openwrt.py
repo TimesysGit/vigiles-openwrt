@@ -16,7 +16,7 @@
 """
 usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
                           [-K LLKEY] [-C LLDASHBOARD] [-U] [-k KCONFIG] [-u UCONFIG]
-                          [-A ADDL]
+                          [-A ADDL] [-E EXCLD]
 
 Arguments:
   -h, --help                show this help message and exit
@@ -42,6 +42,8 @@ Arguments:
                             Custom U-Boot Config to Use
   -A ADDL, --additional-packages ADDL
                             File of Additional Packages to Include
+  -E EXCLD, --exclude-packages EXCLD
+                            File of Packages to Exclude
 """
 #######################################################################################
 
@@ -64,10 +66,18 @@ from lib.utils import dbg, err
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-b", "--build", required=True, dest="bdir", help="OpenWrt Build Directory"
+        "-b",
+        "--build",
+        required=True,
+        dest="bdir",
+        help="OpenWrt Build Directory"
     )
     parser.add_argument(
-        "-o", "--output", required=True, dest="odir", help="Vigiles Output Directory"
+        "-o",
+        "--output",
+        required=True,
+        dest="odir",
+        help="Vigiles Output Directory"
     )
     parser.add_argument(
         "-D",
@@ -128,6 +138,12 @@ def parse_args():
         dest="addl",
         help="File of Additional Packages to Include",
     )
+    parser.add_argument(
+        "-E",
+        "--exclude-packages",
+        dest="excld",
+        help="File of Packages to Exclude"
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -143,6 +159,7 @@ def parse_args():
         "kconfig": args.kconfig.strip() if args.kconfig else "auto",
         "uconfig": args.uconfig.strip() if args.uconfig else "auto",
         "addl": args.addl.strip() if args.addl else "",
+        "excld": args.excld.strip() if args.excld else "",
     }
 
     if not os.path.exists(vgls.get("bdir")):
