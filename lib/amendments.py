@@ -127,6 +127,55 @@ def _filter_excluded_packages(vgls_pkgs, excld_pkgs):
         vgls_pkgs.pop(pkg_key)
 
 
+def _get_user_whitelist(whtlst_csv):
+    if not whtlst_csv:
+        return []
+
+    if not os.path.exists(whtlst_csv):
+        warn("Skipping Non-Existent CVE Whitelist File: %s" % whtlst_csv)
+        return []
+
+    dbg("Importing Whitelisted CVEs from %s" % whtlst_csv)
+
+    whtlst_cves = set()
+    try:
+        with open(whtlst_csv) as csv_in:
+            reader = csv.reader(csv_in)
+            for row in reader:
+                if not len(row):
+                    continue
+                if row[0].startswith('#'):
+                    continue
+
+                pkg = row[0].strip().upper()
+                whtlst_cves.add(pkg.replace(' ', '-'))
+    except Exception as e:
+        warn("whitelist-cves: %s" % e)
+        return []
+
+    dbg("Requested CVEs to Ignore: %s" % list(whtlst_cves))
+    return whtlst_cves
+
+
+def _get_package_whitelist(pkg_dict):
+    whitelist = set()
+    for pdict in pkg_dict.values():
+        wl = [
+            cve
+            for cve in pdict.get('ignore_cves', '').split(' ')
+            if cve
+        ]
+        whitelist.update(wl)
+    return whitelist
+
+
+def _build_whitelist(vgls, manifest):
+    whtlst = set()
+    whtlst.update(_get_user_whitelist(vgls['whtlst']))
+    whtlst.update(_get_package_whitelist(manifest['packages']))
+    return list(whtlst)
+
+
 def amend_manifest(vgls, manifest):
     addl_pkgs = _get_addl_packages(vgls["addl"])
     if addl_pkgs:
@@ -134,3 +183,9 @@ def amend_manifest(vgls, manifest):
 
     excld_pkgs = _get_excld_packages(vgls["excld"])
     _filter_excluded_packages(manifest["packages"], excld_pkgs)
+
+    whtlst_cves = _build_whitelist(vgls, manifest)
+    if whtlst_cves:
+        dbg("Ignoring CVEs: %s" %
+            json.dumps(whtlst_cves, indent=4, sort_keys=True))
+        manifest['whitelist'] = sorted(whtlst_cves)

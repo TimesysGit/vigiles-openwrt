@@ -16,7 +16,7 @@
 """
 usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
                           [-K LLKEY] [-C LLDASHBOARD] [-U] [-k KCONFIG] [-u UCONFIG]
-                          [-A ADDL] [-E EXCLD]
+                          [-A ADDL] [-E EXCLD] [-W WHTLST]
 
 Arguments:
   -h, --help                show this help message and exit
@@ -29,9 +29,9 @@ Arguments:
   -D, --enable-debug        Enable Debug Output
   -I, --write-intermediate
                             Save Intermediate JSON Dictionaries
-  -N  MANIFEST_REPORT_NAME, --name MANIFEST_REPORT_NAME
+  -N MANIFEST_REPORT_NAME, --name MANIFEST_REPORT_NAME
                             Custom Manifest/Report name
-  -K  LLKEY, --keyfile LLKEY
+  -K LLKEY, --keyfile LLKEY
                             Path of LinuxLink credentials file
   -C LLDASHBOARD, --dashboard-config LLDASHBOARD
                             Path of LinuxLink Dashboard Config file
@@ -44,6 +44,8 @@ Arguments:
                             File of Additional Packages to Include
   -E EXCLD, --exclude-packages EXCLD
                             File of Packages to Exclude
+  -W WHTLST, --whitelist-cves WHTLST
+                            File of CVEs to Ignore/Whitelist
 """
 #######################################################################################
 
@@ -144,6 +146,12 @@ def parse_args():
         dest="excld",
         help="File of Packages to Exclude"
     )
+    parser.add_argument(
+        "-W",
+        "--whitelist-cves",
+        dest="whtlst",
+        help="File of CVEs to Ignore/Whitelist"
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -160,6 +168,7 @@ def parse_args():
         "uconfig": args.uconfig.strip() if args.uconfig else "auto",
         "addl": args.addl.strip() if args.addl else "",
         "excld": args.excld.strip() if args.excld else "",
+        "whtlst": args.whtlst.strip() if args.whtlst else "",
     }
 
     if not os.path.exists(vgls.get("bdir")):
