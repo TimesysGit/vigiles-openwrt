@@ -16,7 +16,7 @@
 """
 usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
                           [-K LLKEY] [-C LLDASHBOARD] [-U] [-k KCONFIG] [-u UCONFIG]
-                          [-A ADDL] [-E EXCLD] [-W WHTLST]
+                          [-A ADDL] [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME]
 
 Arguments:
   -h, --help                show this help message and exit
@@ -46,6 +46,8 @@ Arguments:
                             File of Packages to Exclude
   -W WHTLST, --whitelist-cves WHTLST
                             File of CVEs to Ignore/Whitelist
+  -F SUBFOLDER_NAME, --subfolder SUBFOLDER_NAME
+                            Name of subfolder to upload manifest to
 """
 #######################################################################################
 
@@ -152,6 +154,12 @@ def parse_args():
         dest="whtlst",
         help="File of CVEs to Ignore/Whitelist"
     )
+    parser.add_argument(
+        '-F',
+        '--subfolder',
+        dest='subfolder_name',
+        help='Name of subfolder to upload to', default=''
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -169,6 +177,7 @@ def parse_args():
         "addl": args.addl.strip() if args.addl else "",
         "excld": args.excld.strip() if args.excld else "",
         "whtlst": args.whtlst.strip() if args.whtlst else "",
+        'subfolder_name': args.subfolder_name.strip(),
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -222,6 +231,7 @@ def run_check(vgls):
         "upload_only": vgls.get("upload_only", False),
         "kconfig": kconfig_path,
         "uconfig": uconfig_path,
+        'subfolder_name': vgls.get('subfolder_name', ''),
     }
     vigiles_request(vgls_chk)
 
