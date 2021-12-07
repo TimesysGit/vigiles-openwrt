@@ -10,9 +10,10 @@
 ###########################################################################
 
 import os
+import sys
 
 from .utils import mkdirhier
-from .utils import dbg, info, warn
+from .utils import dbg, info, warn, err
 
 
 def _get_kernel_dir(vgls):
@@ -22,8 +23,17 @@ def _get_kernel_dir(vgls):
         vgls["config"]["config-gcc-version"],
         vgls["config"]["config-libc"],
     )
+    build_dir = os.path.join(vgls.get("bdir"), "build_dir")
+    if not os.path.exists(build_dir):
+        err([
+            "Invalid directory path: %s" % build_dir,
+            "It seems you have not built Openwrt image yet.",
+            "Build Openwrt image by running `make` inside Openwrt Build directory: %s" % vgls.get("bdir"),
+            "and than try again."
+             ])
+        sys.exit(1)
 
-    for dir in os.listdir(os.path.join(vgls["bdir"], "build_dir")):
+    for dir in os.listdir(build_dir):
         if dir.startswith(toolchain_dir):
             toolchain_dir = dir
             break
@@ -48,11 +58,21 @@ def _get_uboot_dir(vgls):
         vgls["config"]["config-libc"],
     )
 
-    for dir in os.listdir(os.path.join(vgls["bdir"], "build_dir")):
+    build_dir = os.path.join(vgls.get("bdir"), "build_dir")
+    if not os.path.exists(build_dir):
+        err([
+            "Invalid directory path: %s" % build_dir,
+            "It seems you have not built Openwrt image yet.",
+            "Build Openwrt image by running `make` inside Openwrt Build directory: %s" % vgls.get("bdir"),
+            "and than try again."
+             ])
+        sys.exit(1)
+
+    for dir in os.listdir(build_dir):
         if dir.startswith(target_dir):
             target_dir = dir
             break
-    target_dir_path = os.path.join(vgls["bdir"], "build_dir", target_dir)
+    target_dir_path = os.path.join(build_dir, target_dir)
 
     if not os.path.exists(target_dir_path):
         return ""
