@@ -23,6 +23,7 @@ from .amendments import amend_manifest
 VIGILES_DEFAULT_DISTRO = "openwrt"
 VIGILES_DEFAULT_IMAGE = "rootfs"
 VIGILES_MANIFEST_VERSION = "1.0"
+VIGILES_OUTPUT_DIR = "vigiles-output"
 
 
 def _get_machine_name(vgls):

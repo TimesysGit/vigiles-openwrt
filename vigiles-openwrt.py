@@ -58,7 +58,7 @@ import sys
 import json
 
 from lib.openwrt import get_config_options
-from lib.manifest import write_manifest
+from lib.manifest import write_manifest, VIGILES_OUTPUT_DIR
 import lib.packages as packages
 from lib.checkcves import vigiles_request
 from lib.kernel_uboot import get_kernel_info, get_uboot_info
@@ -79,7 +79,6 @@ def parse_args():
     parser.add_argument(
         "-o",
         "--output",
-        required=True,
         dest="odir",
         help="Vigiles Output Directory"
     )
@@ -185,7 +184,10 @@ def parse_args():
         sys.exit(1)
 
     if not vgls.get("odir", None):
-        vgls["odir"] = os.path.join(os.path.abspath, "vigiles-output")
+        odir = os.path.join(os.path.abspath(os.path.curdir), VIGILES_OUTPUT_DIR)
+        if not os.path.exists(odir):
+            os.mkdir(odir)
+        vgls["odir"] = odir
 
     dbg("Vigiles OpenWrt Config: %s" % json.dumps(vgls, indent=4, sort_keys=True))
     return vgls
