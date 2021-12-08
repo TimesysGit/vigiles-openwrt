@@ -140,19 +140,31 @@ def print_cves(result, outfile=None):
                         print("\t* %s" % patch, file=outfile)
 
 
-def parse_cve_counts(counts, category):
-    total = counts.get(category, 0)
-    kernel = counts.get("kernel", {}).get(category, 0)
-    toolchain = counts.get("toolchain", {}).get(category, 0)
-    rfs = total - kernel - toolchain
-    return {"total": total, "rfs": rfs, "kernel": kernel, "toolchain": toolchain}
+def parse_unfixed_cve_counts(counts):
+    total = counts.get("unfixed", 0) + counts.get("unapplied", 0) + counts.get("upgradable", 0)
+    kernel = counts.get("kernel", {}).get("unfixed", 0) + \
+             counts.get("kernel", {}).get("unapplied", 0) + \
+             counts.get("kernel", {}).get("upgradable", 0)
+    userspace = total - kernel
+    return {"total": total, "userspace": userspace, "kernel": kernel}
 
 
-def parse_cvss_counts(counts, severity):
-    c = counts.get(severity)
-    if c is None:
-        return 0
-    return c.get("unfixed", 0) + c.get("fixed", 0)
+def parse_fixed_cve_counts(counts):
+    total = counts.get("fixed", 0)
+    kernel = counts.get("kernel", {}).get("fixed", 0)
+    userspace = total - kernel
+    return {"total": total, "userspace": userspace, "kernel": kernel}
+
+
+def parse_cvss_counts(counts):
+    high_cvss_total = counts.get("high", {}).get("unfixed", 0)
+    high_cvss_kernel = counts.get("kernel", {}).get("high", {}).get("unfixed", 0)
+    critical_cvss_total = counts.get("critical", {}).get("unfixed", 0)
+    critical_cvss_kernel = counts.get("kernel", {}).get("critical", {}).get("unfixed", 0)
+    total = high_cvss_total + critical_cvss_total
+    kernel = high_cvss_kernel + critical_cvss_kernel
+    userspace = total - kernel
+    return {"total": total, "userspace": userspace, "kernel": kernel}
 
 
 def print_report_header(result, f_out=None):
@@ -194,34 +206,29 @@ def print_report_overview(result, is_demo=False, f_out=None):
 def print_summary(result, outfile=None):
     def show_subscribed_summary(f_out=outfile):
         counts = result.get("counts", {})
-        unfixed = parse_cve_counts(counts, "unfixed")
-        unapplied = parse_cve_counts(counts, "unapplied")
-        fixed = parse_cve_counts(counts, "fixed")
+        unfixed = parse_unfixed_cve_counts(counts)
+        fixed = parse_fixed_cve_counts(counts)
 
         cvss_counts = counts.get("cvss_counts", {})
-        cvss_total = parse_cvss_counts(cvss_counts, "high")
-        cvss_kernel = parse_cvss_counts(cvss_counts.get("kernel", {}), "high")
-        cvss_toolchain = parse_cvss_counts(cvss_counts.get("toolchain", {}), "high")
-        cvss_rfs = cvss_total - cvss_kernel - cvss_toolchain
+        cvss = parse_cvss_counts(cvss_counts)
 
         print(
-            "\n\tUnfixed: {} ({} RFS, {} Kernel, {} Toolchain)".format(
+            "\n\tUnfixed: {} ({} User space, {} Kernel)".format(
                 unfixed["total"],
-                unfixed["rfs"],
+                unfixed["userspace"],
                 unfixed["kernel"],
-                unfixed["toolchain"],
             ),
             file=f_out,
         )
         print(
-            "\tFixed: {} ({} RFS, {} Kernel, {} Toolchain)".format(
-                fixed["total"], fixed["rfs"], fixed["kernel"], fixed["toolchain"]
+            "\tFixed: {} ({} User space, {} Kernel)".format(
+                fixed["total"], fixed["userspace"], fixed["kernel"]
             ),
             file=f_out,
         )
         print(
-            "\tHigh CVSS: {} ({} RFS, {} Kernel, {} Toolchain)".format(
-                cvss_total, cvss_rfs, cvss_kernel, cvss_toolchain
+            "\tHigh/Critical CVSS (Unfixed): {} ({} User space, {} Kernel)".format(
+                cvss["total"], cvss["userspace"], cvss["kernel"]
             ),
             file=f_out,
         )
