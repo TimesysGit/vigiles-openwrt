@@ -65,3 +65,13 @@ def get_config_options(vgls):
     dbg("Openwrt Config: %d Options" % len(config_dict.keys()))
     write_intm_json(vgls, "config-vars", config_dict)
     return config_dict
+
+
+def get_openwrt_license(vgls):
+    # Reference: https://git.openwrt.org/?p=openwrt/openwrt.git;a=commit;h=882e3014610be8ec9a2feb63b544b917c39b8293
+    if os.path.isdir(os.path.join(vgls["bdir"], "LICENSES")):
+        return " or ".join(os.listdir(os.path.join(vgls["bdir"], "LICENSES")))
+    elif os.path.isfile(os.path.join(vgls["bdir"], "LICENSE")):
+        # All older releases are under "GPLv2"
+        return "GPL-2.0"
+    return "unknown"

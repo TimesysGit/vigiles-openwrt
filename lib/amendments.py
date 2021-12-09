@@ -13,7 +13,8 @@ import os
 
 from collections import defaultdict
 
-from .utils import dbg, info, warn
+from .openwrt import get_openwrt_license
+from .utils import dbg, info, warn, sanitize_openwrt_version
 
 
 def _get_addl_packages(extra_csv):
@@ -127,6 +128,20 @@ def _filter_excluded_packages(vgls_pkgs, excld_pkgs):
         vgls_pkgs.pop(pkg_key)
 
 
+def _append_openwrt_package(vgls, manifest):
+    ver = sanitize_openwrt_version(manifest["distro_version"])
+    lic = get_openwrt_license(vgls)
+    tmp = {"cpe_id": "unknown",
+           "cve_product": "openwrt",
+           "cve_version": ver,
+           "license": lic,
+           "name": "openwrt",
+           "patches": [],
+           "rawname": "openwrt",
+           "version": ver}
+    manifest["packages"]["openwrt"] = tmp
+
+
 def _get_user_whitelist(whtlst_csv):
     if not whtlst_csv:
         return []
@@ -183,6 +198,7 @@ def amend_manifest(vgls, manifest):
 
     excld_pkgs = _get_excld_packages(vgls["excld"])
     _filter_excluded_packages(manifest["packages"], excld_pkgs)
+    _append_openwrt_package(vgls, manifest)
 
     whtlst_cves = _build_whitelist(vgls, manifest)
     if whtlst_cves:

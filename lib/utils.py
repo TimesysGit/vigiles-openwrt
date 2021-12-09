@@ -122,3 +122,9 @@ def write_intm_json(vgls, name, d):
                     "Error: %s" % e,
                 ]
             )
+
+
+def sanitize_openwrt_version(ver):
+    if ver.startswith("v"):
+        return ver[1:]
+    return ver
