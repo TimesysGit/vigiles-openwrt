@@ -98,6 +98,8 @@ def _get_pkg_cve_product(pkg, mk_info):
 def _get_pkg_cve_version(mk_info):
     if "PKG_CVE_VERSION" in mk_info.keys():
         cve_version = mk_info["PKG_CVE_VERSION"]
+    elif "PKG_RELEASE_VERSION" in mk_info.keys() and "$" not in mk_info["PKG_RELEASE_VERSION"]:
+        cve_version = mk_info["PKG_RELEASE_VERSION"]
     else:
         cve_version = _get_pkg_version(mk_info)
     return cve_version
