@@ -18,11 +18,20 @@ from .utils import dbg, info, warn, err
 
 def _get_kernel_dir(vgls):
     kdir = ""
-    toolchain_dir = "toolchain-%s_gcc-%s_%s" % (
-        vgls["config"]["config-target-arch-packages"],
-        vgls["config"]["config-gcc-version"],
-        vgls["config"]["config-libc"],
-    )
+    if vgls["config"].get("config-arch-64bit"):
+        toolchain_dir = "toolchain-%s_%s_64_gcc-%s_%s" % (
+            vgls["config"]["config-arch"],
+            vgls["config"]["config-cpu-type"],
+            vgls["config"]["config-gcc-version"],
+            vgls["config"]["config-libc"],
+        )
+    else:
+        toolchain_dir = "toolchain-%s_%s_gcc-%s_%s" % (
+            vgls["config"]["config-arch"],
+            vgls["config"]["config-cpu-type"],
+            vgls["config"]["config-gcc-version"],
+            vgls["config"]["config-libc"],
+        )
     build_dir = os.path.join(vgls.get("bdir"), "build_dir")
     if not os.path.exists(build_dir):
         err([
