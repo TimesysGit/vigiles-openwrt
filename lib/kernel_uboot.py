@@ -18,20 +18,20 @@ from .utils import dbg, info, warn, err
 
 def _get_kernel_dir(vgls):
     kdir = ""
-    if vgls["config"].get("config-arch-64bit"):
-        toolchain_dir = "toolchain-%s_%s_64_gcc-%s_%s" % (
-            vgls["config"]["config-arch"],
-            vgls["config"]["config-cpu-type"],
-            vgls["config"]["config-gcc-version"],
-            vgls["config"]["config-libc"],
-        )
-    else:
-        toolchain_dir = "toolchain-%s_%s_gcc-%s_%s" % (
-            vgls["config"]["config-arch"],
-            vgls["config"]["config-cpu-type"],
-            vgls["config"]["config-gcc-version"],
-            vgls["config"]["config-libc"],
-        )
+    # handle cases for some 64bit builds toolchain directory name doesn't include 64
+    toolchain_dir_64 = "toolchain-%s_%s_64_gcc-%s_%s" % (
+        vgls["config"]["config-arch"],
+        vgls["config"]["config-cpu-type"],
+        vgls["config"]["config-gcc-version"],
+        vgls["config"]["config-libc"],
+    )
+    toolchain_dir = "toolchain-%s_%s_gcc-%s_%s" % (
+        vgls["config"]["config-arch"],
+        vgls["config"]["config-cpu-type"],
+        vgls["config"]["config-gcc-version"],
+        vgls["config"]["config-libc"],
+    )
+    toolchain_dirs = [toolchain_dir_64, toolchain_dir]
     build_dir = os.path.join(vgls.get("bdir"), "build_dir")
     if not os.path.exists(build_dir):
         err([
@@ -43,7 +43,7 @@ def _get_kernel_dir(vgls):
         sys.exit(1)
 
     for dir in os.listdir(build_dir):
-        if dir.startswith(toolchain_dir):
+        if dir.startswith(toolchain_dirs[0]) or dir.startswith(toolchain_dirs[1]):
             toolchain_dir = dir
             break
     toolchain_dir_path = os.path.join(vgls["bdir"], "build_dir", toolchain_dir)
@@ -62,10 +62,18 @@ def _get_kernel_dir(vgls):
 
 def _get_uboot_dir(vgls):
     udir = ""
-    target_dir = "target-%s_%s" % (
-        vgls["config"]["config-target-arch-packages"],
+    # handle cases for some 64bit builds target directory name doesn't include 64
+    target_dir_64 = "target-%s_%s_64_%s" % (
+        vgls["config"]["config-arch"],
+        vgls["config"]["config-cpu-type"],
         vgls["config"]["config-libc"],
     )
+    target_dir = "target-%s_%s_%s" % (
+        vgls["config"]["config-arch"],
+        vgls["config"]["config-cpu-type"],
+        vgls["config"]["config-libc"],
+    )
+    target_dirs = [target_dir_64, target_dir]
 
     build_dir = os.path.join(vgls.get("bdir"), "build_dir")
     if not os.path.exists(build_dir):
@@ -78,7 +86,7 @@ def _get_uboot_dir(vgls):
         sys.exit(1)
 
     for dir in os.listdir(build_dir):
-        if dir.startswith(target_dir):
+        if dir.startswith(target_dirs[0]) or dir.startswith(target_dirs[1]):
             target_dir = dir
             break
     target_dir_path = os.path.join(build_dir, target_dir)
