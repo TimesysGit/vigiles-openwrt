@@ -353,7 +353,7 @@ def _get_credentials(vgls_chk):
 
 
 def vigiles_request(vgls_chk):
-    resource = "/api/vigiles/manifests"
+    resource = "/api/v1/vigiles/manifests"
 
     vgls_creds = _get_credentials(vgls_chk)
     email = vgls_creds["email"]
