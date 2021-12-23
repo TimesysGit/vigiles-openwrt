@@ -209,9 +209,8 @@ def collect_metadata(vgls):
         dbg("Getting Kernel Info ...")
         get_kernel_info(vgls)
 
-    if "uboot-envtools" in vgls["packages"]:
-        dbg("Getting U-Boot Info ...")
-        get_uboot_info(vgls)
+    dbg("Getting U-Boot Info ...")
+    get_uboot_info(vgls)
 
 
 def run_check(vgls):

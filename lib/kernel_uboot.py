@@ -141,6 +141,27 @@ def _get_version_from_makefile(target_path, with_extra=True):
     return version_string
 
 
+def _get_license_from_makefile(target_path):
+    license_string = "unknown"
+    makefile_path = os.path.join(target_path, "Makefile")
+    if not os.path.exists(makefile_path):
+        warn("Source directory not found: %s." % makefile_path)
+        return license_string
+    with open(makefile_path) as mk:
+        for l in mk.readlines():
+            if "SPDX-License-Identifier" in l:
+                l = (
+                    l.replace("#", "")
+                        .replace("//*", "")
+                        .replace("////", "")
+                        .strip()
+                )
+                l_split = l.split(":")
+                license_string = l_split[1].strip()
+    license_string = ",".join(license_string.split(" "))
+    return license_string
+
+
 def _get_config_opts(config_file, preamble_length=0):
     config_preamble = []
     config_set = set()
@@ -288,7 +309,7 @@ def get_kernel_info(vgls):
 
 
 def get_uboot_info(vgls):
-    uboot_dict = vgls["packages"]["uboot-envtools"]
+    uboot_dict = {}
 
     udir = _get_uboot_dir(vgls)
 
@@ -302,11 +323,11 @@ def get_uboot_info(vgls):
         return None
 
     ver = _get_version_from_makefile(udir, with_extra=False)
-
-    uboot_dict["cve_version"] = ver
+    uboot_dict["cpe_id"] = "unknown"
+    uboot_dict["license"] = _get_license_from_makefile(udir)
+    uboot_dict["cve_version"] = uboot_dict["version"] = ver
     dbg("U-Boot Version: %s" % ver)
-    uboot_dict["name"] = "uboot"
-    uboot_dict["cve_product"] = "uboot"
+    uboot_dict["name"] = uboot_dict["cve_product"] = uboot_dict["rawname"] = "u-boot"
 
     uconfig_out = "none"
     config_opts = _uboot_config(vgls, udir)
@@ -315,4 +336,5 @@ def get_uboot_info(vgls):
     if uconfig_out != "none":
         dbg("U-Boot Config: Wrote %d options to %s" % (len(config_opts), uconfig_out))
     vgls["uconfig"] = uconfig_out
+    vgls["packages"]["u-boot"] = uboot_dict
     return vgls
