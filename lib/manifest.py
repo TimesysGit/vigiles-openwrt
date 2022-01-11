@@ -24,11 +24,18 @@ VIGILES_DEFAULT_DISTRO = "openwrt"
 VIGILES_DEFAULT_IMAGE = "rootfs"
 VIGILES_MANIFEST_VERSION = "1.0"
 VIGILES_OUTPUT_DIR = "vigiles-output"
+VIGILES_MANIFEST_NAME_MAX_LENGTH = 256
 
 
 def _get_machine_name(vgls):
     _machine = vgls["config"].get("config-cpu-type", vgls["config"]["config-arch"])
     return _machine
+
+
+def _limit_manifest_name_length(name, max_limit):
+    if len(name) > max_limit:
+        warn("Manifest Name: Only the first %d characters will be used for the manifest name." % max_limit)
+    return name[:max_limit]
 
 
 def _init_manifest(vgls):
@@ -60,6 +67,8 @@ def _init_manifest(vgls):
     if not _name:
         _name = _boardname
 
+    _name = _limit_manifest_name_length(_name, VIGILES_MANIFEST_NAME_MAX_LENGTH)
+
     build_dict = {
         "arch": vgls["config"]["config-arch"],
         "cpu": vgls["config"].get("config-cpu-type", ""),
@@ -77,7 +86,7 @@ def _init_manifest(vgls):
 
 
 def _make_file_name(vgls, manifest_dict, suffix, ext):
-    file_spec = "-".join([manifest_dict["manifest_name"], suffix])
+    file_spec = "-".join([manifest_dict["manifest_name"][:VIGILES_MANIFEST_NAME_MAX_LENGTH - len(suffix) - len(ext) - 3], suffix])
     file_name = ".".join([file_spec, ext])
     file_path = os.path.join(vgls["odir"], file_name)
     return file_path
