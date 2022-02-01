@@ -438,6 +438,8 @@ def vigiles_request(vgls_chk):
 
     result = ll.api_post(email, key, resource, request)
     if not result:
+        if outfile:
+            outfile.close()
         sys.exit(1)
 
     # the default list contains a harmless but bogus example CVE ID,
@@ -464,6 +466,7 @@ def vigiles_request(vgls_chk):
         print_report_overview(result, demo)
         print_summary(result)
         print("\n\tLocal summary written to:\n\t  %s" % os.path.relpath(outfile.name))
+        outfile.close()
 
 
 if __name__ == "__main__":
