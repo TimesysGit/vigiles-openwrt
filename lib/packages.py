@@ -396,9 +396,11 @@ def get_toolchain_info(vgls, pkg_dict):
     libc_package, libc_info = get_libc_info(vgls)
     if libc_info:
         pkg_dict[libc_package] = libc_info
+        dbg("%s version: %s" % (libc_info["name"], libc_info["version"]))
 
     libgcc_info = get_libgcc_info(vgls)
     if libgcc_info:
         pkg_dict["libgcc"] = libgcc_info
+        dbg("%s version: %s" % (libgcc_info["name"], libgcc_info["version"]))
 
     return pkg_dict
