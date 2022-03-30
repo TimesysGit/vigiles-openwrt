@@ -21,7 +21,7 @@ from .utils import kconfig_to_py
 from .utils import dbg, info, warn
 
 
-ENCLUDE_PKGS = ["toolchain"]
+EXCLUDE_PKGS = ["toolchain"]
 PACKAGE_SUPPLIER = "Organization: OpenWrt ()"
 
 
@@ -32,7 +32,7 @@ def _get_pkgs(path):
             if not f.endswith("Makefile"):
                 continue
             pkgname = kconfig_to_py(os.path.basename(root))
-            if pkgname in ENCLUDE_PKGS:
+            if pkgname in EXCLUDE_PKGS:
                 continue
             pkgpath = os.path.join(root, f)
             pkgs[pkgname] = {"makefile": pkgpath}
