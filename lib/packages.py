@@ -22,6 +22,7 @@ from .utils import dbg, info, warn
 
 
 ENCLUDE_PKGS = ["toolchain"]
+PACKAGE_SUPPLIER = "Organization: OpenWrt ()"
 
 
 def _get_pkgs(path):
@@ -141,6 +142,7 @@ def _get_pkg_make_info(pkgs):
         pkgs[pkg]["cpe_id"] = _get_pkg_cpe_id(mk_info)
         pkgs[pkg]["cve_product"] = _get_pkg_cve_product(pkg, mk_info)
         pkgs[pkg]["cve_version"] = _get_pkg_cve_version(mk_info)
+        pkgs[pkg]["package_supplier"] = PACKAGE_SUPPLIER
 
         for subpkg in subpkgs:
             if subpkg != pkgs[pkg].get("name"):
@@ -152,6 +154,7 @@ def _get_pkg_make_info(pkgs):
                 alias_pkgs[subpkg]["cpe_id"] = pkgs[pkg].get("cpe_id")
                 alias_pkgs[subpkg]["cve_product"] = pkgs[pkg].get("cve_product")
                 alias_pkgs[subpkg]["cve_version"] = pkgs[pkg].get("cve_version")
+                alias_pkgs[subpkg]["package_supplier"] = PACKAGE_SUPPLIER
     pkgs.update(alias_pkgs)
     return pkgs
 
@@ -319,7 +322,7 @@ def get_libc_info(vgls):
         return
     libc_package = vgls["config"]["config-libc"]
     make_path = os.path.join(vgls["bdir"], "toolchain", libc_package, "common.mk")
-    pkg_name, pkg_version, pkg_license = libc_package, "unset", "unknown"
+    pkg_name, pkg_version, pkg_license, package_supplier = libc_package, "unset", "unknown", PACKAGE_SUPPLIER
     if os.path.exists(make_path):
         with open(make_path) as mk:
             mk_info = {}
@@ -339,6 +342,7 @@ def get_libc_info(vgls):
         "license": pkg_license,
         "cve_product": libc_package,
         "cve_version": pkg_version,
+        "package_supplier": package_supplier,
     }
 
     if os.path.exists(os.path.join(vgls["bdir"], "toolchain", libc_package, "patches")):
@@ -359,7 +363,7 @@ def get_libgcc_info(vgls):
         return None, None
 
     make_path = os.path.join(vgls["bdir"], "toolchain", "gcc", "common.mk")
-    pkg_name, pkg_license = "gcc", "unknown"
+    pkg_name, pkg_license, package_supplier = "gcc", "unknown", PACKAGE_SUPPLIER
     if os.path.exists(make_path):
         with open(make_path) as mk:
             mk_info = {}
@@ -375,6 +379,7 @@ def get_libgcc_info(vgls):
         "license": pkg_license,
         "cve_product": pkg_name,
         "cve_version": vgls["config"].get("config-gcc-version"),
+        "package_supplier": package_supplier,
     }
 
     patch_dir = os.path.join(
