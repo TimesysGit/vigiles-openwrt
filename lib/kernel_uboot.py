@@ -42,6 +42,31 @@ def _get_toolchain_dir_name(vgls):
     return "InvalidPath"
 
 
+def _get_target_dir_name(vgls):
+    makefile_dir = os.path.join(vgls['bdir'], "package", "kernel", "linux")
+    try:
+        my_env = os.environ.copy()
+        my_env["TOPDIR"] = vgls["bdir"]
+        mk_vals = subprocess.Popen(
+            [
+                "make",
+                "--no-print-directory",
+                "-C",
+                makefile_dir,
+                "val.TARGET_DIR_NAME"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=my_env
+        )
+        out, _ = mk_vals.communicate()
+        target_dir = out.decode().strip().splitlines()
+        return target_dir[0]
+    except Exception as _:
+        dbg("Target directory location not found.")
+    return "InvalidPath"
+
+
 def _get_kernel_dir(vgls):
     kdir = ""
     build_dir = os.path.join(vgls.get("bdir"), "build_dir")
@@ -70,19 +95,6 @@ def _get_kernel_dir(vgls):
 
 def _get_uboot_dir(vgls):
     udir = ""
-    # handle cases for some 64bit builds target directory name doesn't include 64
-    target_dir_64 = "target-%s_%s_64_%s" % (
-        vgls["config"]["config-arch"],
-        vgls["config"]["config-cpu-type"],
-        vgls["config"]["config-libc"],
-    )
-    target_dir = "target-%s_%s_%s" % (
-        vgls["config"]["config-arch"],
-        vgls["config"]["config-cpu-type"],
-        vgls["config"]["config-libc"],
-    )
-    target_dirs = [target_dir_64, target_dir]
-
     build_dir = os.path.join(vgls.get("bdir"), "build_dir")
     if not os.path.exists(build_dir):
         err([
@@ -93,11 +105,8 @@ def _get_uboot_dir(vgls):
              ])
         sys.exit(1)
 
-    for dir in os.listdir(build_dir):
-        if dir.startswith(target_dirs[0]) or dir.startswith(target_dirs[1]):
-            target_dir = dir
-            break
-    target_dir_path = os.path.join(build_dir, target_dir)
+    target_dir_name = _get_target_dir_name(vgls)
+    target_dir_path = os.path.join(build_dir, target_dir_name)
 
     if not os.path.exists(target_dir_path):
         return ""
