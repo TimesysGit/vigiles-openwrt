@@ -11,27 +11,39 @@
 
 import os
 import sys
+import subprocess
 
 from .utils import mkdirhier
 from .utils import dbg, info, warn, err
 
 
+def _get_toolchain_dir_name(vgls):
+    makefile_dir = os.path.join(vgls['bdir'], "package", "kernel", "linux")
+    try:
+        my_env = os.environ.copy()
+        my_env["TOPDIR"] = vgls["bdir"]
+        mk_vals = subprocess.Popen(
+            [
+                "make",
+                "--no-print-directory",
+                "-C",
+                makefile_dir,
+                "val.TOOLCHAIN_DIR_NAME"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=my_env
+        )
+        out, _ = mk_vals.communicate()
+        toolchain_dir = out.decode().strip().splitlines()
+        return toolchain_dir[0]
+    except Exception as _:
+        dbg("Toolchain directory location not found.")
+    return "InvalidPath"
+
+
 def _get_kernel_dir(vgls):
     kdir = ""
-    # handle cases for some 64bit builds toolchain directory name doesn't include 64
-    toolchain_dir_64 = "toolchain-%s_%s_64_gcc-%s_%s" % (
-        vgls["config"]["config-arch"],
-        vgls["config"]["config-cpu-type"],
-        vgls["config"]["config-gcc-version"],
-        vgls["config"]["config-libc"],
-    )
-    toolchain_dir = "toolchain-%s_%s_gcc-%s_%s" % (
-        vgls["config"]["config-arch"],
-        vgls["config"]["config-cpu-type"],
-        vgls["config"]["config-gcc-version"],
-        vgls["config"]["config-libc"],
-    )
-    toolchain_dirs = [toolchain_dir_64, toolchain_dir]
     build_dir = os.path.join(vgls.get("bdir"), "build_dir")
     if not os.path.exists(build_dir):
         err([
@@ -42,12 +54,8 @@ def _get_kernel_dir(vgls):
              ])
         sys.exit(1)
 
-    for dir in os.listdir(build_dir):
-        if dir.startswith(toolchain_dirs[0]) or dir.startswith(toolchain_dirs[1]):
-            toolchain_dir = dir
-            break
-    toolchain_dir_path = os.path.join(vgls["bdir"], "build_dir", toolchain_dir)
-
+    toolchain_dir_name = _get_toolchain_dir_name(vgls)
+    toolchain_dir_path = os.path.join(build_dir, toolchain_dir_name)
     if not os.path.exists(toolchain_dir_path):
         return ""
 
