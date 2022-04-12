@@ -166,6 +166,58 @@ def _remove_makefile_from_pkg_data(pkg_dict):
     return pkg_dict
 
 
+def _patched_cves(src_patches, vgls):
+    patched_dict = dict()
+
+    cve_match = re.compile("CVE\-\d{4}\-\d+")
+
+    # Matches last CVE-1234-211432 in the file name, also if written
+    # with small letters. Not supporting multiple CVE id's in a single
+    # file name.
+    cve_file_name_match = re.compile(".*([Cc][Vv][Ee]\-\d{4}\-\d+)")
+
+    for patch_path in src_patches:
+        found_cves = list()
+
+        patch_name = os.path.basename(patch_path)
+        # Check patch file name for CVE ID
+        fname_match = cve_file_name_match.search(patch_name)
+        if fname_match:
+            cve = fname_match.group(1).upper()
+            found_cves.append(cve)
+
+        with open(patch_path, "r", encoding="utf-8") as f:
+            try:
+                patch_text = f.read()
+            except UnicodeDecodeError:
+                info(
+                    vgls,
+                    "Failed to read patch %s using UTF-8 encoding"
+                    " trying with iso8859-1" % patch_path,
+                )
+                f.close()
+                with open(patch_path, "r", encoding="iso8859-1") as f:
+                    patch_text = f.read()
+
+        # Search for one or more "CVE-XXXX-XXXX+" lines
+        for match in cve_match.finditer(patch_text):
+            found_cves.append(match.group())
+
+        if len(found_cves):
+            dbg("Patches: Found CVEs for Someone: %s" % json.dumps(found_cves))
+
+        for cve in found_cves:
+            entry = patched_dict.get(cve, list())
+            if patch_name not in entry:
+                entry.append(patch_name)
+            patched_dict.update({cve: entry})
+
+    if len(patched_dict.keys()):
+        dbg("Patches: Patched CVEs for Someone: %s" % json.dumps(patched_dict))
+
+    return {key: sorted(patched_dict[key]) for key in sorted(patched_dict.keys())}
+
+
 def get_available_pkgs(vgls):
     avail_pkgs = _get_pkgs(vgls["bdir"])
     avail_pkgs_info = _get_pkg_make_info(avail_pkgs)
@@ -202,57 +254,6 @@ def get_package_info(vgls):
                 pkgs[pkg] = full_pkg_list[full_pkg_list[pkg].get("name")]
         return pkgs
 
-    def _patched_cves(src_patches):
-        patched_dict = dict()
-
-        cve_match = re.compile("CVE\-\d{4}\-\d+")
-
-        # Matches last CVE-1234-211432 in the file name, also if written
-        # with small letters. Not supporting multiple CVE id's in a single
-        # file name.
-        cve_file_name_match = re.compile(".*([Cc][Vv][Ee]\-\d{4}\-\d+)")
-
-        for patch_path in src_patches:
-            found_cves = list()
-
-            patch_name = os.path.basename(patch_path)
-            # Check patch file name for CVE ID
-            fname_match = cve_file_name_match.search(patch_name)
-            if fname_match:
-                cve = fname_match.group(1).upper()
-                found_cves.append(cve)
-
-            with open(patch_path, "r", encoding="utf-8") as f:
-                try:
-                    patch_text = f.read()
-                except UnicodeDecodeError:
-                    info(
-                        vgls,
-                        "Failed to read patch %s using UTF-8 encoding"
-                        " trying with iso8859-1" % patch_path,
-                    )
-                    f.close()
-                    with open(patch_path, "r", encoding="iso8859-1") as f:
-                        patch_text = f.read()
-
-            # Search for one or more "CVE-XXXX-XXXX+" lines
-            for match in cve_match.finditer(patch_text):
-                found_cves.append(match.group())
-
-            if len(found_cves):
-                dbg("Patches: Found CVEs for Someone: %s" % json.dumps(found_cves))
-
-            for cve in found_cves:
-                entry = patched_dict.get(cve, list())
-                if patch_name not in entry:
-                    entry.append(patch_name)
-                patched_dict.update({cve: entry})
-
-        if len(patched_dict.keys()):
-            dbg("Patches: Patched CVEs for Someone: %s" % json.dumps(patched_dict))
-
-        return {key: sorted(patched_dict[key]) for key in sorted(patched_dict.keys())}
-
     # Patch management in openwrt https://openwrt.org/docs/guide-developer/overview
     # https://openwrt.org/docs/guide-developer/overview#how_a_package_is_compiled
     def _pkg_patches(pkg):
@@ -273,7 +274,7 @@ def get_package_info(vgls):
 
         if patch_list:
             pkg["patches"] = sorted([os.path.basename(p) for p in patch_list])
-            pkg["patched_cves"] = _patched_cves(patch_list)
+            pkg["patched_cves"] = _patched_cves(patch_list, vgls)
             if pkg["patched_cves"]:
                 dbg(
                     "Patched CVEs for %s" % pkg["name"],
@@ -345,16 +346,17 @@ def get_libc_info(vgls):
         "package_supplier": package_supplier,
     }
 
-    if os.path.exists(os.path.join(vgls["bdir"], "toolchain", libc_package, "patches")):
-        libc_info["patches"] = fnmatch.filter(
-            [
-                p.name
-                for p in os.scandir(
-                    os.path.join(vgls["bdir"], "toolchain", libc_package, "patches")
-                )
-            ],
-            "*.patch",
+    patch_dir = os.path.join(vgls["bdir"], "toolchain", libc_package, "patches")
+    if os.path.exists(patch_dir):
+        patch_list = []
+        patch_list.extend(
+            fnmatch.filter(
+                [p.path for p in os.scandir(patch_dir)],
+                "*.patch",
+            )
         )
+        libc_info["patches"] = sorted([os.path.basename(p) for p in patch_list])
+        libc_info["patched_cves"] = _patched_cves(patch_list, vgls)
     return libc_package, libc_info
 
 
@@ -390,10 +392,15 @@ def get_libgcc_info(vgls):
         vgls["config"].get("config-gcc-version"),
     )
     if os.path.exists(patch_dir):
-        libgcc_info["patches"] = fnmatch.filter(
-            [p.name for p in os.scandir(patch_dir)],
-            "*.patch",
+        patch_list = []
+        patch_list.extend(
+            fnmatch.filter(
+                [p.path for p in os.scandir(patch_dir)],
+                "*.patch",
+            )
         )
+        libgcc_info["patches"] = sorted([os.path.basename(p) for p in patch_list])
+        libgcc_info["patched_cves"] = _patched_cves(patch_list, vgls)
     return libgcc_info
 
 
