@@ -9,12 +9,14 @@
 #
 ###########################################################################
 
+import fnmatch
 import os
 import sys
 import subprocess
 
 from .utils import mkdirhier
 from .utils import dbg, info, warn, err
+from .packages import _patched_cves
 
 
 def _get_toolchain_dir_name(vgls):
@@ -246,6 +248,45 @@ def _kernel_config(vgls, kdir):
     return config_options
 
 
+def _get_kernel_major_minor(ver):
+    return ".".join(ver.split(".")[:2])
+
+
+# Kernel Patch mgmt. in OpenWrt
+# https://openwrt.org/docs/guide-developer/toolchain/use-patches-with-buildsystem#adding_or_editing_kernel_patches
+def _get_kernel_patches(vgls, ver):
+    patches = []
+    patched_cves = {}
+    linux_dir = os.path.join(vgls.get("bdir"), "target", "linux")
+    generic_dir = os.path.join(linux_dir, "generic")
+    board_dir = os.path.join(linux_dir, vgls["config"].get("config-target-board", "openwrt"))
+    kernel_version = _get_kernel_major_minor(ver)
+    board_patch_dirs = ["patches-%s" % kernel_version]
+    generic_patch_dirs = ["backport-%s" % kernel_version,
+                          "pending-%s" % kernel_version,
+                          "hack-%s" % kernel_version,
+                          "patches-%s" % kernel_version]
+
+    def _get_patches(tdir, patch_dirs):
+        if os.path.exists(tdir):
+            for dir in os.listdir(tdir):
+                if dir in patch_dirs and os.path.isdir(os.path.join(tdir, dir)):
+                    patch_dir = os.path.join(tdir, dir)
+                    patch_list = []
+                    patch_list.extend(
+                        fnmatch.filter(
+                            [p.path for p in os.scandir(patch_dir)],
+                            "*.patch",
+                        )
+                    )
+                    patches.extend(sorted([os.path.basename(p) for p in patch_list]))
+                    patched_cves.update(_patched_cves(patch_list, vgls))
+
+    _get_patches(generic_dir, generic_patch_dirs)
+    _get_patches(board_dir, board_patch_dirs)
+    return patches, patched_cves
+
+
 def _uboot_config(vgls, udir):
     uconfig_in = vgls["uconfig"]
 
@@ -279,6 +320,27 @@ def _uboot_config(vgls, udir):
             dbg("U-Boot Config: %d autoconf Options" % len(autoconf_options))
 
     return config_options
+
+
+def _get_uboot_patches(vgls):
+    patches = []
+    patched_cves = {}
+    uboot_dir = os.path.join(vgls.get("bdir"), "package", "boot", "uboot-%s" % vgls["config"].get("config-target-board", ""))
+
+    if os.path.exists(uboot_dir):
+        for dir in os.listdir(uboot_dir):
+            if dir == "patches" and os.path.isdir(os.path.join(uboot_dir, dir)):
+                patch_dir = os.path.join(uboot_dir, dir)
+                patch_list = []
+                patch_list.extend(
+                    fnmatch.filter(
+                        [p.path for p in os.scandir(patch_dir)],
+                        "*.patch",
+                    )
+                )
+                patches.extend(sorted([os.path.basename(p) for p in patch_list]))
+                patched_cves.update(_patched_cves(patch_list, vgls))
+    return patches, patched_cves
 
 
 def _write_config(vgls, pkg_dict, config_options):
@@ -321,6 +383,7 @@ def get_kernel_info(vgls):
     linux_dict["version"] = ver
     linux_dict["cve_version"] = ver
     dbg("Kernel Version: %s" % ver)
+    linux_dict["patches"], linux_dict["patched_cves"] = _get_kernel_patches(vgls, ver)
 
     kconfig_out = "none"
     config_opts = _kernel_config(vgls, kdir)
@@ -353,6 +416,7 @@ def get_uboot_info(vgls):
     uboot_dict["cve_version"] = uboot_dict["version"] = ver
     dbg("U-Boot Version: %s" % ver)
     uboot_dict["name"] = uboot_dict["cve_product"] = uboot_dict["rawname"] = "u-boot"
+    uboot_dict["patches"], uboot_dict["patched_cves"] = _get_uboot_patches(vgls)
 
     uconfig_out = "none"
     config_opts = _uboot_config(vgls, udir)
