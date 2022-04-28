@@ -14,7 +14,7 @@ from collections import defaultdict
 
 from .utils import kconfig_to_py, kconfig_bool
 from .utils import write_intm_json
-from .utils import dbg, err
+from .utils import dbg, err, UNKNOWN
 
 
 def _find_dot_config(vgls):
@@ -74,4 +74,4 @@ def get_openwrt_license(vgls):
     elif os.path.isfile(os.path.join(vgls["bdir"], "LICENSE")):
         # All older releases are under "GPLv2"
         return "GPL-2.0"
-    return "unknown"
+    return UNKNOWN

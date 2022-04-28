@@ -18,7 +18,8 @@ from collections import defaultdict
 
 from .utils import write_intm_json
 from .utils import kconfig_to_py
-from .utils import dbg, info, warn
+from .utils import dbg, info, warn, UNKNOWN, UNSET
+from .utils import get_makefile_variables
 
 
 EXCLUDE_PKGS = ["toolchain"]
@@ -60,7 +61,7 @@ def _sanitize_version(version_in):
 
 
 def _get_pkg_version(mk_info):
-    version = "unset"
+    version = UNSET
     if "PKG_VERSION" in mk_info.keys() and "$" not in mk_info["PKG_VERSION"]:
         version = mk_info["PKG_VERSION"]
     elif "PKG_UPSTREAM_VERSION" in mk_info.keys():
@@ -72,7 +73,7 @@ def _get_pkg_version(mk_info):
 
 
 def _get_pkg_license(mk_info):
-    license = "unknown"
+    license = UNKNOWN
     if "SPDX-LICENSE-IDENTIFIER" in mk_info.keys():
         license = mk_info["SPDX-LICENSE-IDENTIFIER"]
     elif "PKG_LICENSE" in mk_info.keys():
@@ -82,7 +83,7 @@ def _get_pkg_license(mk_info):
 
 
 def _get_pkg_cpe_id(mk_info):
-    cpe_id = "unknown"
+    cpe_id = UNKNOWN
     if "PKG_CPE_ID" in mk_info.keys():
         cpe_id = mk_info["PKG_CPE_ID"]
     return cpe_id
@@ -96,6 +97,13 @@ def _get_pkg_cve_product(pkg, mk_info):
     return cve_product
 
 
+def _get_pkg_dwld_proto(mk_info):
+    source_proto = UNKNOWN
+    if "PKG_SOURCE_PROTO" in mk_info.keys():
+        source_proto = mk_info["PKG_SOURCE_PROTO"].strip()
+    return source_proto
+
+
 def _get_pkg_cve_version(mk_info):
     if "PKG_CVE_VERSION" in mk_info.keys():
         cve_version = mk_info["PKG_CVE_VERSION"]
@@ -104,6 +112,26 @@ def _get_pkg_cve_version(mk_info):
     else:
         cve_version = _get_pkg_version(mk_info)
     return cve_version
+
+
+def _get_download_location(pkgs, bdir):
+    for pkg, pkginfo in pkgs.items():
+        pkginfo["download_location"] = UNKNOWN
+        if "makefile" in pkginfo.keys():
+            makefile_dir = os.path.dirname(pkginfo["makefile"])
+            try:
+                my_env = os.environ.copy()
+                my_env["TOPDIR"] = bdir
+                pkg_source, pkg_url = get_makefile_variables(makefile_dir, my_env, ["val.PKG_SOURCE", "val.PKG_SOURCE_URL"])
+                # select the first pkg source url
+                pkg_url = pkg_url.split(" ")[0]
+                if pkginfo["download_protocol"] == "git" or pkg_url.endswith("?"):
+                    pkginfo["download_location"] = pkg_url
+                else:
+                    pkginfo["download_location"] = "%s/%s" % (pkg_url, pkg_source)
+            except Exception as e:
+                pkginfo["download_location"] = UNKNOWN
+    return pkgs
 
 
 def _get_pkg_make_info(pkgs):
@@ -143,6 +171,7 @@ def _get_pkg_make_info(pkgs):
         pkgs[pkg]["cve_product"] = _get_pkg_cve_product(pkg, mk_info)
         pkgs[pkg]["cve_version"] = _get_pkg_cve_version(mk_info)
         pkgs[pkg]["package_supplier"] = PACKAGE_SUPPLIER
+        pkgs[pkg]["download_protocol"] = _get_pkg_dwld_proto(mk_info)
 
         for subpkg in subpkgs:
             if subpkg != pkgs[pkg].get("name"):
@@ -155,6 +184,7 @@ def _get_pkg_make_info(pkgs):
                 alias_pkgs[subpkg]["cve_product"] = pkgs[pkg].get("cve_product")
                 alias_pkgs[subpkg]["cve_version"] = pkgs[pkg].get("cve_version")
                 alias_pkgs[subpkg]["package_supplier"] = PACKAGE_SUPPLIER
+                alias_pkgs[subpkg]["download_protocol"] = pkgs[pkg].get("download_protocol")
     pkgs.update(alias_pkgs)
     return pkgs
 
@@ -303,6 +333,9 @@ def get_package_info(vgls):
         warn("No configured packages seem to exist in tree.")
         return None
 
+    # populate source download locations of known packages
+    _get_download_location(known_packages, vgls["bdir"])
+
     # Add patch info
     for name in known_packages.keys():
         _pkg_patches(known_packages[name])
@@ -323,7 +356,7 @@ def get_libc_info(vgls):
         return
     libc_package = vgls["config"]["config-libc"]
     make_path = os.path.join(vgls["bdir"], "toolchain", libc_package, "common.mk")
-    pkg_name, pkg_version, pkg_license, package_supplier = libc_package, "unset", "unknown", PACKAGE_SUPPLIER
+    pkg_name, pkg_version, pkg_license, package_supplier = libc_package, UNSET, UNKNOWN, PACKAGE_SUPPLIER
     if os.path.exists(make_path):
         with open(make_path) as mk:
             mk_info = {}
@@ -344,6 +377,8 @@ def get_libc_info(vgls):
         "cve_product": libc_package,
         "cve_version": pkg_version,
         "package_supplier": package_supplier,
+        "download_location": UNKNOWN,
+        "download_protocol": UNKNOWN,
     }
 
     patch_dir = os.path.join(vgls["bdir"], "toolchain", libc_package, "patches")
@@ -365,7 +400,7 @@ def get_libgcc_info(vgls):
         return None, None
 
     make_path = os.path.join(vgls["bdir"], "toolchain", "gcc", "common.mk")
-    pkg_name, pkg_license, package_supplier = "gcc", "unknown", PACKAGE_SUPPLIER
+    pkg_name, pkg_license, package_supplier = "gcc", UNKNOWN, PACKAGE_SUPPLIER
     if os.path.exists(make_path):
         with open(make_path) as mk:
             mk_info = {}
@@ -382,6 +417,8 @@ def get_libgcc_info(vgls):
         "cve_product": pkg_name,
         "cve_version": vgls["config"].get("config-gcc-version"),
         "package_supplier": package_supplier,
+        "download_location": UNKNOWN,
+        "download_protocol": UNKNOWN,
     }
 
     patch_dir = os.path.join(

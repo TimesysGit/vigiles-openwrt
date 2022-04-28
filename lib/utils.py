@@ -12,12 +12,16 @@
 import errno
 import json
 import os
+import subprocess
 import sys
 
 
 Vigiles_Debug = False
 Vigiles_Verbose = True
 Previous_Verbose = True
+
+UNKNOWN = "unknown"
+UNSET = "unset"
 
 
 # Case conversion helpers --
@@ -128,3 +132,20 @@ def sanitize_openwrt_version(ver):
     if ver.startswith("v"):
         return ver[1:]
     return ver
+
+
+def get_makefile_variables(makefile_dir, env, mk_varlist):
+    mk_vals = subprocess.Popen(
+        [
+            "make",
+            "--no-print-directory",
+            "-C",
+            makefile_dir,
+        ] + mk_varlist,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env
+    )
+    out, _ = mk_vals.communicate()
+    op = out.decode().strip().splitlines()
+    return op

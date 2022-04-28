@@ -14,7 +14,7 @@ import os
 from collections import defaultdict
 
 from .openwrt import get_openwrt_license
-from .utils import dbg, info, warn, sanitize_openwrt_version
+from .utils import dbg, info, warn, sanitize_openwrt_version, UNKNOWN
 
 
 def _get_addl_packages(extra_csv):
@@ -48,7 +48,7 @@ def _get_addl_packages(extra_csv):
                 if len(row) > 2:
                     license = row[2].strip()
                 else:
-                    license = "unknown"
+                    license = UNKNOWN
                 extra_rows.append([pkg, ver, license])
     except Exception as e:
         warn("Additional Packages: %s" % e)
@@ -131,13 +131,15 @@ def _filter_excluded_packages(vgls_pkgs, excld_pkgs):
 def _append_openwrt_package(vgls, manifest):
     ver = sanitize_openwrt_version(manifest["distro_version"])
     lic = get_openwrt_license(vgls)
-    tmp = {"cpe_id": "unknown",
+    tmp = {"cpe_id": UNKNOWN,
            "cve_product": "openwrt",
            "cve_version": ver,
            "license": lic,
            "name": "openwrt",
            "patches": [],
            "rawname": "openwrt",
+           "download_location": UNKNOWN,
+           "download_protocol": UNKNOWN,
            "version": ver}
     manifest["packages"]["openwrt"] = tmp
 
@@ -191,6 +193,15 @@ def _build_whitelist(vgls, manifest):
     return list(whtlst)
 
 
+def _expand_package_download_location(vgls, manifest):
+    if vgls.get("kernel_mirrors") and vgls["kernel_mirrors"]:
+        kernel_mirror = vgls["kernel_mirrors"][0]
+        for package_info in manifest["packages"].values():
+            if package_info.get("download_location") and "@KERNEL" in package_info.get("download_location"):
+                tmp = package_info["download_location"]
+                package_info["download_location"] = tmp.replace("@KERNEL", kernel_mirror)
+
+
 def amend_manifest(vgls, manifest):
     addl_pkgs = _get_addl_packages(vgls["addl"])
     if addl_pkgs:
@@ -199,6 +210,7 @@ def amend_manifest(vgls, manifest):
     excld_pkgs = _get_excld_packages(vgls["excld"])
     _filter_excluded_packages(manifest["packages"], excld_pkgs)
     _append_openwrt_package(vgls, manifest)
+    _expand_package_download_location(vgls, manifest)
 
     whtlst_cves = _build_whitelist(vgls, manifest)
     if whtlst_cves:

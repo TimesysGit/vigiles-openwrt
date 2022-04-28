@@ -11,11 +11,14 @@
 
 import fnmatch
 import os
+import re
 import sys
 import subprocess
+from urllib.parse import urljoin
 
 from .utils import mkdirhier
-from .utils import dbg, info, warn, err
+from .utils import dbg, info, warn, err, UNKNOWN
+from .utils import get_makefile_variables
 from .packages import _patched_cves
 
 
@@ -169,7 +172,7 @@ def _get_version_from_makefile(target_path, with_extra=True):
 
 
 def _get_license_from_makefile(target_path):
-    license_string = "unknown"
+    license_string = UNKNOWN
     makefile_path = os.path.join(target_path, "Makefile")
     if not os.path.exists(makefile_path):
         warn("Source directory not found: %s." % makefile_path)
@@ -372,6 +375,89 @@ def _write_config(vgls, pkg_dict, config_options):
     return config_file
 
 
+def _get_kernel_mirrors(vgls):
+    download_script_path = os.path.join(vgls['bdir'], "scripts", "download.pl")
+    kernel_mirrors = []
+    try:
+        with open(download_script_path) as dwld_file:
+            content = dwld_file.readlines()
+            kernel_start_flag = False
+            mirror_start_flag = False
+            for line in content:
+                if "@KERNEL" in line:
+                    kernel_start_flag = True
+                elif kernel_start_flag and mirror_start_flag is False and "foreach" in line:
+                    mirror_start_flag = True
+                elif kernel_start_flag and mirror_start_flag and "@mirrors" in line:
+                    tmp = line.strip().split(",")[-1].strip()
+                    kernel_mirrors.append(tmp.replace('"', "").replace("/$dir;", ""))
+                elif kernel_start_flag and mirror_start_flag and "}" in line:
+                    break
+    except Exception as _:
+        dbg("Kernel mirrors not found.")
+    vgls["kernel_mirrors"] = kernel_mirrors
+    return kernel_mirrors
+
+
+def _get_kernel_major(ver):
+    return ver.split(".")[0]
+
+
+def _adjust_linux_site(linux_site, ver):
+    if not re.search(r'\d', linux_site):
+        linux_site = linux_site.replace("v.x", "v%s.x" % _get_kernel_major(ver))
+    return linux_site
+
+
+def _adjust_linux_source(linux_source, ver):
+    # populate kernel version in source package name if not already present
+    if not re.search(r'\d', linux_source):
+        linux_source = ".".join(
+            [linux_source.split(".")[0] + _get_kernel_major_minor(ver)] + linux_source.split(".")[1:])
+    return linux_source
+
+
+def _get_kernel_download_location(vgls, ver):
+    if vgls["config"]["config-kernel-git-clone-uri"]:
+        return vgls["config"]["config-kernel-git-clone-uri"]
+
+    makefile_dir = os.path.join(vgls['bdir'], "package", "kernel", "linux")
+    try:
+        kernel_mirrors = _get_kernel_mirrors(vgls)
+        my_env = os.environ.copy()
+        my_env["TOPDIR"] = vgls["bdir"]
+        linux_site, linux_source = get_makefile_variables(makefile_dir, my_env, ["val.LINUX_SITE", "val.LINUX_SOURCE"])
+        linux_site = _adjust_linux_site(linux_site, ver)
+        linux_source = _adjust_linux_source(linux_source, ver)
+
+        # pick first kernel mirror and make kernel download url
+        if kernel_mirrors:
+            linux_site = linux_site.replace("@KERNEL", kernel_mirrors[0])
+        return "%s/%s" % (linux_site, linux_source)
+    except Exception as _:
+        dbg("Kernel download location not found.")
+    return UNKNOWN
+
+
+def _get_uboot_download_location(vgls):
+    board_uboot_dir = os.path.join(vgls['bdir'], "package", "boot", "uboot-%s" % (vgls["config"]["config-target-board"]))
+
+    if not os.path.exists(board_uboot_dir):
+        dbg("U-boot download location not found.")
+        return UNKNOWN
+
+    try:
+        my_env = os.environ.copy()
+        my_env["TOPDIR"] = vgls["bdir"]
+        pkg_source, pkg_source_url = get_makefile_variables(board_uboot_dir, my_env, ["val.PKG_SOURCE", "val.PKG_SOURCE_URL"])
+        pkg_source_urls = pkg_source_url.split(" ")
+        # pick first source url and make package download url
+        return urljoin(pkg_source_urls[0], pkg_source)
+    except Exception as _:
+        dbg("U-boot download location not found.")
+    return UNKNOWN
+
+
 def get_kernel_info(vgls):
     linux_dict = vgls["packages"]["linux"]
 
@@ -382,6 +468,8 @@ def get_kernel_info(vgls):
     ver = _get_version_from_makefile(kdir)
     linux_dict["version"] = ver
     linux_dict["cve_version"] = ver
+    linux_dict["download_location"] = _get_kernel_download_location(vgls, ver)
+    linux_dict["download_protocol"] = UNKNOWN
     dbg("Kernel Version: %s" % ver)
     linux_dict["patches"], linux_dict["patched_cves"] = _get_kernel_patches(vgls, ver)
 
@@ -411,11 +499,13 @@ def get_uboot_info(vgls):
         return None
 
     ver = _get_version_from_makefile(udir, with_extra=False)
-    uboot_dict["cpe_id"] = "unknown"
+    uboot_dict["cpe_id"] = UNKNOWN
     uboot_dict["license"] = _get_license_from_makefile(udir)
     uboot_dict["cve_version"] = uboot_dict["version"] = ver
     dbg("U-Boot Version: %s" % ver)
     uboot_dict["name"] = uboot_dict["cve_product"] = uboot_dict["rawname"] = "u-boot"
+    uboot_dict["download_location"] = _get_uboot_download_location(vgls)
+    uboot_dict["download_protocol"] = UNKNOWN
     uboot_dict["patches"], uboot_dict["patched_cves"] = _get_uboot_patches(vgls)
 
     uconfig_out = "none"
