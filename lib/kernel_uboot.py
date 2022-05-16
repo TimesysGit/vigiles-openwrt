@@ -23,24 +23,12 @@ from .packages import _patched_cves
 
 
 def _get_toolchain_dir_name(vgls):
-    makefile_dir = os.path.join(vgls['bdir'], "package", "kernel", "linux")
+    board = vgls["config"].get("config-target-board", "")
+    makefile_dir = os.path.join(vgls['bdir'], "target", "linux", board)
     try:
         my_env = os.environ.copy()
         my_env["TOPDIR"] = vgls["bdir"]
-        mk_vals = subprocess.Popen(
-            [
-                "make",
-                "--no-print-directory",
-                "-C",
-                makefile_dir,
-                "val.TOOLCHAIN_DIR_NAME"
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=my_env
-        )
-        out, _ = mk_vals.communicate()
-        toolchain_dir = out.decode().strip().splitlines()
+        toolchain_dir = get_makefile_variables(makefile_dir, my_env, ["val.TOOLCHAIN_DIR_NAME"])
         return toolchain_dir[0]
     except Exception as _:
         dbg("Toolchain directory location not found.")
@@ -48,24 +36,12 @@ def _get_toolchain_dir_name(vgls):
 
 
 def _get_target_dir_name(vgls):
-    makefile_dir = os.path.join(vgls['bdir'], "package", "kernel", "linux")
+    board = vgls["config"].get("config-target-board", "")
+    makefile_dir = os.path.join(vgls['bdir'], "target", "linux", board)
     try:
         my_env = os.environ.copy()
         my_env["TOPDIR"] = vgls["bdir"]
-        mk_vals = subprocess.Popen(
-            [
-                "make",
-                "--no-print-directory",
-                "-C",
-                makefile_dir,
-                "val.TARGET_DIR_NAME"
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=my_env
-        )
-        out, _ = mk_vals.communicate()
-        target_dir = out.decode().strip().splitlines()
+        target_dir = get_makefile_variables(makefile_dir, my_env, ["val.TARGET_DIR_NAME"])
         return target_dir[0]
     except Exception as _:
         dbg("Target directory location not found.")
