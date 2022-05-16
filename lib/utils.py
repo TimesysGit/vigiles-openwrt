@@ -134,14 +134,19 @@ def sanitize_openwrt_version(ver):
     return ver
 
 
-def get_makefile_variables(makefile_dir, env, mk_varlist):
+def get_makefile_variables(makefile_dir, env, mk_varlist, mk_extra=None):
+    cmd = [
+        "make",
+        "--no-print-directory",
+        "-C",
+        makefile_dir,
+    ] + mk_varlist
+
+    if mk_extra:
+        cmd.insert(1, mk_extra)
+
     mk_vals = subprocess.Popen(
-        [
-            "make",
-            "--no-print-directory",
-            "-C",
-            makefile_dir,
-        ] + mk_varlist,
+        cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env

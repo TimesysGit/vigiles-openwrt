@@ -393,16 +393,33 @@ def _adjust_linux_source(linux_source, ver):
     return linux_source
 
 
+def _get_kernel_patchversion(config):
+    patchver_list = [
+        k.replace("config-linux-", "").replace("-", ".")
+        for k, v in config.items()
+        if v is True and k.startswith('config-linux')
+    ]
+    return patchver_list[0] if patchver_list else None
+
+
 def _get_kernel_download_location(vgls, ver):
     if vgls["config"]["config-kernel-git-clone-uri"]:
         return vgls["config"]["config-kernel-git-clone-uri"]
 
     makefile_dir = os.path.join(vgls['bdir'], "package", "kernel", "linux")
+    make_override_vars = None
+    try:
+        kernel_patchver = _get_kernel_patchversion(vgls['config'])
+        if kernel_patchver:
+            make_override_vars = "KERNEL_PATCHVER=%s" % kernel_patchver
+    except Exception as _:
+        dbg("Kernel patch version not found in .config file")
+
     try:
         kernel_mirrors = _get_kernel_mirrors(vgls)
         my_env = os.environ.copy()
         my_env["TOPDIR"] = vgls["bdir"]
-        linux_site, linux_source = get_makefile_variables(makefile_dir, my_env, ["val.LINUX_SITE", "val.LINUX_SOURCE"])
+        linux_site, linux_source = get_makefile_variables(makefile_dir, my_env, ["val.LINUX_SITE", "val.LINUX_SOURCE"], make_override_vars)
         linux_site = _adjust_linux_site(linux_site, ver)
         linux_source = _adjust_linux_source(linux_source, ver)
 
@@ -416,8 +433,8 @@ def _get_kernel_download_location(vgls, ver):
 
 
 def _get_uboot_download_location(vgls):
-    board_uboot_dir = os.path.join(vgls['bdir'], "package", "boot", "uboot-%s" % (vgls["config"]["config-target-board"]))
-
+    board = vgls["config"].get("config-target-board", "")
+    board_uboot_dir = os.path.join(vgls['bdir'], "package", "boot", "uboot-%s" % board)
     if not os.path.exists(board_uboot_dir):
         dbg("U-boot download location not found.")
         return UNKNOWN
