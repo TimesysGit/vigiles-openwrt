@@ -13,11 +13,12 @@ import argparse
 import os
 import sys
 import json
+import urllib.parse
 
 from lib import llapi as ll
 
 NVD_BASE_URL = "https://nvd.nist.gov/vuln/detail/"
-API_DOC = ll.LinuxLinkURL + "/docs/wiki/engineering/LinuxLink_Key_File"
+API_DOC = 'https://linuxlink.timesys.com/docs/wiki/engineering/LinuxLink_Key_File'
 INFO_PAGE_DOMAIN = "https://www.timesys.com"
 INFO_PAGE_PATH = "/security/vulnerability-patch-notification/"
 INFO_PAGE = INFO_PAGE_DOMAIN + INFO_PAGE_PATH
@@ -173,11 +174,11 @@ def print_report_overview(result, is_demo=False, f_out=None):
     product_path = result.get("product_path", "")
 
     if report_path:
-        report_url = "%s%s" % (ll.LinuxLinkURL, report_path)
+        report_url = urllib.parse.urljoin(ll.VigilesURL, report_path)
         print("\n-- Vigiles CVE Report --", file=f_out)
         print("\n\tView detailed online report at:\n" "\t  %s" % report_url, file=f_out)
     elif product_path:
-        product_url = "%s%s" % (ll.LinuxLinkURL, product_path)
+        product_url = urllib.parse.urljoin(ll.VigilesURL, product_path)
         product_name = result.get("product_name", "Default")
         print("\n-- Vigiles Dashboard --", file=f_out)
         print(
@@ -323,7 +324,13 @@ def _get_credentials(vgls_chk):
     vgls_chk["dashboard"] = dashboard_config
 
     try:
-        email, key = ll.read_keyfile(key_file)
+        key_info = ll.read_keyfile(key_file)
+        email = key_info.get('email', None)
+        key = key_info.get('key', None)
+        is_enterprise = key_info.get('enterprise', False)
+        if is_enterprise:
+            ll.VigilesURL = key_info.get('server_url', ll.VigilesURL)
+
         # It is fine if either of these are none, they will just default
         dashboard_tokens = ll.read_dashboard_config(dashboard_config)
     except Exception as e:
@@ -334,9 +341,10 @@ def _get_credentials(vgls_chk):
     vgls_creds = {
         "email": email,
         "key": key,
-        "product": dashboard_tokens.get("product", ""),
+        'product_or_group': dashboard_tokens.get('product_or_group', ''),
         "folder": dashboard_tokens.get("folder", ""),
         'subfolder_name': subfolder_name,
+        'is_enterprise': is_enterprise,
     }
     return vgls_creds
 
@@ -347,6 +355,7 @@ def vigiles_request(vgls_chk):
     vgls_creds = _get_credentials(vgls_chk)
     email = vgls_creds["email"]
     key = vgls_creds["key"]
+    is_enterprise = vgls_creds['is_enterprise']
     subfolder_name = vgls_creds['subfolder_name']
     demo = False
 
@@ -411,7 +420,7 @@ def vigiles_request(vgls_chk):
     request = {
         "manifest": manifest_data,
         "subscribe": False,
-        "product_token": vgls_creds.get("product", ""),
+        'group_token' if is_enterprise else 'product_token': vgls_creds.get('product_or_group', ''),
         "folder_token": vgls_creds.get("folder", ""),
         "upload_only": upload_only,
         'subfolder_name': subfolder_name,
