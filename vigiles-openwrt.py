@@ -48,6 +48,7 @@ Arguments:
                             File of CVEs to Ignore/Whitelist
   -F SUBFOLDER_NAME, --subfolder SUBFOLDER_NAME
                             Name of subfolder to upload manifest to
+  -M, --metadata-only       Generate a SBOM without performing a vulnerability scan
 """
 #######################################################################################
 
@@ -124,6 +125,13 @@ def parse_args():
         default=False,
     )
     parser.add_argument(
+        "-M",
+        "--metadata-only",
+        dest="do_check",
+        help="Only collect metadata, don\'t run online Check",
+        action="store_false",
+    )
+    parser.add_argument(
         "-k",
         "--kernel-config",
         dest="kconfig",
@@ -177,6 +185,7 @@ def parse_args():
         "excld": args.excld.strip() if args.excld else "",
         "whtlst": args.whtlst.strip() if args.whtlst else "",
         'subfolder_name': args.subfolder_name.strip(),
+        "do_check": args.do_check,
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -241,7 +250,8 @@ def __main__():
     vgls = parse_args()
     collect_metadata(vgls)
     write_manifest(vgls)
-    run_check(vgls)
+    if vgls["do_check"]:
+        run_check(vgls)
 
 
 __main__()

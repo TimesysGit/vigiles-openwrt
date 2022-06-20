@@ -326,20 +326,13 @@ If one does not exist, it will be created. This option will be overridden by the
 
 For development purposes, some "Expert" options are available.
 These allow for debugging of the metadata that is collected.
-
 These features are not supported and no documentation is provided for them.
 
+**Write Intermediate JSON Files of Collected Metadata**: ```-I, --write-intermediate```
 
-#### Write Intermediate JSON Files of Collected Metadata
+**Enable Debug messages**: ```-D, --enable-debug```
 
-This behavior can be enabled with the Vigiles CVE Scanner argument
-```-I, --write-intermediate```.
-
-
-#### Debug messages
-
-This behavior can be enabled with the Vigiles CVE Scanner argument
-```-D, --enable-debug```.
+**Generate a SBOM without performing a vulnerability scan**: ```-M, --metadata-only```
 
 
 Maintenance
