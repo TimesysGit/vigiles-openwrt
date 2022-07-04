@@ -60,10 +60,20 @@ def _sanitize_version(version_in):
     return version_out
 
 
-def _get_pkg_version(mk_info):
+def _get_pkg_version(mk_info, bdir, makefile_dir):
     version = UNSET
-    if "PKG_VERSION" in mk_info.keys() and "$" not in mk_info["PKG_VERSION"]:
-        version = mk_info["PKG_VERSION"]
+    if "PKG_VERSION" in mk_info.keys():
+        if "$" in mk_info["PKG_VERSION"]:
+            try:
+                my_env = os.environ.copy()
+                my_env["TOPDIR"] = bdir
+                version = get_makefile_variables(
+                    makefile_dir, my_env, ["val.PKG_VERSION"]
+                )[0]
+            except Exception as exc:
+                dbg(f'Unable to parse package version: {exc}')
+        else:
+            version = mk_info["PKG_VERSION"]
     elif "PKG_UPSTREAM_VERSION" in mk_info.keys():
         version = mk_info["PKG_UPSTREAM_VERSION"]
     version = _sanitize_version(version)
@@ -104,13 +114,13 @@ def _get_pkg_dwld_proto(mk_info):
     return source_proto
 
 
-def _get_pkg_cve_version(mk_info):
+def _get_pkg_cve_version(mk_info, bdir, makefile_dir):
     if "PKG_CVE_VERSION" in mk_info.keys():
         cve_version = mk_info["PKG_CVE_VERSION"]
     elif "PKG_RELEASE_VERSION" in mk_info.keys() and "$" not in mk_info["PKG_RELEASE_VERSION"]:
         cve_version = mk_info["PKG_RELEASE_VERSION"]
     else:
-        cve_version = _get_pkg_version(mk_info)
+        cve_version = _get_pkg_version(mk_info, bdir, makefile_dir)
     return cve_version
 
 
@@ -134,10 +144,11 @@ def _get_download_location(pkgs, bdir):
     return pkgs
 
 
-def _get_pkg_make_info(pkgs):
+def _get_pkg_make_info(pkgs, bdir):
     alias_pkgs = defaultdict()
     for pkg in pkgs:
         makefile = pkgs[pkg]["makefile"]
+        makefile_dir = os.path.dirname(makefile)
         subpkgs = []
         with open(makefile) as mk:
             mk_info = {}
@@ -165,11 +176,11 @@ def _get_pkg_make_info(pkgs):
                     mk_info[l_split[0].strip().upper()] = l_split[1].strip()
         pkgs[pkg]["name"] = pkg
         pkgs[pkg]["rawname"] = pkgs[pkg].get("name")
-        pkgs[pkg]["version"] = _get_pkg_version(mk_info)
+        pkgs[pkg]["version"] = _get_pkg_version(mk_info, bdir, makefile_dir)
         pkgs[pkg]["license"] = _get_pkg_license(mk_info)
         pkgs[pkg]["cpe_id"] = _get_pkg_cpe_id(mk_info)
         pkgs[pkg]["cve_product"] = _get_pkg_cve_product(pkg, mk_info)
-        pkgs[pkg]["cve_version"] = _get_pkg_cve_version(mk_info)
+        pkgs[pkg]["cve_version"] = _get_pkg_cve_version(mk_info, bdir, makefile_dir)
         pkgs[pkg]["package_supplier"] = PACKAGE_SUPPLIER
         pkgs[pkg]["download_protocol"] = _get_pkg_dwld_proto(mk_info)
 
@@ -250,7 +261,7 @@ def _patched_cves(src_patches, vgls):
 
 def get_available_pkgs(vgls):
     avail_pkgs = _get_pkgs(vgls["bdir"])
-    avail_pkgs_info = _get_pkg_make_info(avail_pkgs)
+    avail_pkgs_info = _get_pkg_make_info(avail_pkgs, vgls["bdir"])
     return avail_pkgs_info
 
 
