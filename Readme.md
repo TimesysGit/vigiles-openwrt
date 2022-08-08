@@ -47,8 +47,6 @@ To generate a vulnerability report follow the below steps:
     > Example:
     > 
     >```./vigiles-openwrt.py -b /home/user/projects/openwrt -o /home/user/vigiles/output```
-    >
-    > Note: use **absolute paths** for openwrt and output directories.
     > 
     > Note: In case -o argument is not provided, the Vigiles CVE Scanner (vigiles-openwrt.py) would use **{PWD}/vigiles-output** as default **Vigiles output directory** .
 
