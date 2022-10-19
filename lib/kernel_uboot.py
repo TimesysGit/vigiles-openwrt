@@ -93,7 +93,7 @@ def _get_uboot_dir(vgls):
         return ""
 
     stop_flag = False
-    for root, dirs, files in os.walk(target_dir_path, followlinks=True):
+    for root, dirs, files in os.walk(target_dir_path):
         if stop_flag:
             break
         if not os.path.basename(root).startswith("u-boot"):
