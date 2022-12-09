@@ -17,7 +17,7 @@ import subprocess
 from urllib.parse import urljoin
 
 from .utils import mkdirhier
-from .utils import dbg, info, warn, err, UNKNOWN
+from .utils import dbg, info, warn, err, UNKNOWN, UNSET
 from .utils import get_makefile_variables
 from .packages import _patched_cves
 
@@ -109,11 +109,11 @@ def _get_uboot_dir(vgls):
 
 def _get_version_from_makefile(target_path, with_extra=True):
     v = {"major": None, "minor": None, "revision": None, "extra": None}
-    version_string = None
+    version_string = UNSET
     makefile_path = os.path.join(target_path, "Makefile")
     if not os.path.exists(makefile_path):
         warn("Source directory not found: %s." % makefile_path)
-        return None
+        return UNSET
 
     try:
         with open(makefile_path) as f_in:
@@ -136,7 +136,7 @@ def _get_version_from_makefile(target_path, with_extra=True):
             "Versions: Could not read/parse Makefile.",
             ["Path: %s." % makefile_path, "Error: %s" % e],
         )
-        return None
+        return UNSET
 
     if v["major"] and v["minor"]:
         version_string = ".".join([v["major"], v["minor"]])
