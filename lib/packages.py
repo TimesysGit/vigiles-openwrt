@@ -62,7 +62,7 @@ def _sanitize_version(version_in):
 
 def _get_pkg_version(mk_info, bdir, makefile_dir):
     version = UNSET
-    if "PKG_VERSION" in mk_info.keys():
+    if "PKG_VERSION" in mk_info.keys() and mk_info["PKG_VERSION"]:
         if "$" in mk_info["PKG_VERSION"]:
             try:
                 my_env = os.environ.copy()
@@ -74,10 +74,11 @@ def _get_pkg_version(mk_info, bdir, makefile_dir):
                 dbg(f'Unable to parse package version: {exc}')
         else:
             version = mk_info["PKG_VERSION"]
-    elif "PKG_UPSTREAM_VERSION" in mk_info.keys():
+    elif "PKG_UPSTREAM_VERSION" in mk_info.keys() and mk_info["PKG_UPSTREAM_VERSION"]:
         version = mk_info["PKG_UPSTREAM_VERSION"]
     version = _sanitize_version(version)
-    if "PKG_SOURCE_VERSION" in mk_info.keys() and "PKG_SOURCE_DATE" in mk_info.keys():
+    if "PKG_SOURCE_VERSION" in mk_info.keys() and mk_info["PKG_SOURCE_VERSION"] \
+        and "PKG_SOURCE_DATE" in mk_info.keys() and mk_info["PKG_SOURCE_DATE"]:
         version = mk_info["PKG_SOURCE_DATE"] + "-" + mk_info["PKG_SOURCE_VERSION"][:8]
     return version
 
