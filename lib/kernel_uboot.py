@@ -140,10 +140,10 @@ def _get_version_from_makefile(target_path, with_extra=True):
 
     if v["major"] and v["minor"]:
         version_string = ".".join([v["major"], v["minor"]])
-    if v["revision"]:
-        version_string = ".".join([version_string, v["revision"]])
-    if v["extra"] and with_extra:
-        version_string = version_string + v["extra"]
+        if v["revision"]:
+            version_string = ".".join([version_string, v["revision"]])
+        if v["extra"] and with_extra:
+            version_string = version_string + v["extra"]
     return version_string
 
 
