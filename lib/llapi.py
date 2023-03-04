@@ -21,9 +21,8 @@ import urllib.parse
 import urllib.error
 from collections import OrderedDict
 
-LinuxLinkURL = os.getenv('LINUXLINK_SERVER', 'https://linuxlink.timesys.com')
-LinuxLinkSupportRoute = "/support"
-LinuxLinkSupportURL = LinuxLinkURL + LinuxLinkSupportRoute
+VigilesURL = os.getenv('LINUXLINK_SERVER', 'https://linuxlink.timesys.com')
+VigilesSupportURL = 'https://linuxlink.timesys.com/support'
 VigilesInfoURL = "https://www.timesys.com/security/vulnerability-patch-notification/"
 
 
@@ -48,22 +47,22 @@ def read_keyfile(key_file):
     try:
         with open(key_file, "r") as f:
             key_info = json.load(f)
+        for key, value in key_info.items():
+            if isinstance(value, str):
+                key_info.update({key: value.strip()})
     except (OSError, IOError, UnicodeDecodeError):
-        email, key = (None, None)
+        key_info = {}
     except Exception:
         raise Exception("Unable to parse key file: %s" % key_file)
-    else:
-        email = key_info.get("email", "").strip()
-        key = key_info.get("key", "").strip()
 
-    return (email, key)
+    return key_info
 
 
 # This raises an error if it can't read or decode a file that's present, but
 # leaves it to the caller to decide what to do with empty values.
 def read_dashboard_config(config_file):
     dc_tokens = {
-        "product": "",
+        "product_or_group": "",
         "folder": "",
     }
 
@@ -75,7 +74,7 @@ def read_dashboard_config(config_file):
     except Exception:
         raise Exception("Unable to parse config file: %s" % config_file)
     else:
-        dc_tokens["product"] = cfg_info.get("product", "").strip()
+        dc_tokens['product_or_group'] = cfg_info.get('product', cfg_info.get('group', '')).strip()
         dc_tokens["folder"] = cfg_info.get("folder", "").strip()
 
     return dc_tokens
@@ -117,7 +116,7 @@ def api_error_message(reason: str, param: str = "", extra: str = ""):
         "",
         "If the issue persists, please contact LinuxLink support at:",
         "",
-        "\t%s" % LinuxLinkSupportURL,
+        "\t%s" % VigilesSupportURL,
         "",
     ]
 
@@ -152,7 +151,7 @@ def _do_api_call(request_dict, json_response):
     except urllib.error.URLError as e:
         err_reason = "not-known"
         err_str = " ".join([str(real_e) for real_e in e.args])
-    except (TypeError, UnicodeDecodeError):
+    except (TypeError, UnicodeDecodeError) as e:
         err_str = str(e)
         err_reason = "content"
     except Exception as e:
@@ -175,7 +174,7 @@ def api_get(email, key, resource, data_dict={}, json=True):
         "headers": {
             "X-Auth-Signature": create_hmac(key, msg),
         },
-        "url": LinuxLinkURL + resource + "?%s" % params,
+        "url": urllib.parse.urljoin(VigilesURL, resource + '?%s' % params),
     }
     return _do_api_call(request, json)
 
@@ -187,7 +186,7 @@ def api_post(email, key, resource, data_dict={}, json=True):
         "headers": {
             "X-Auth-Signature": create_hmac(key, msg),
         },
-        "url": LinuxLinkURL + resource,
+        "url": urllib.parse.urljoin(VigilesURL, resource),
         "data": urllib.parse.urlencode(data_dict).encode("utf-8"),
     }
     return _do_api_call(request, json)
