@@ -333,6 +333,14 @@ These features are not supported and no documentation is provided for them.
 **Generate a SBOM without performing a vulnerability scan**: ```-M, --metadata-only```
 
 
+### Other Notes
+
+#### Package Version Information in Generated SBOM
+
+Openwrt includes packages/config scripts lacking version information (Ex. base-files, urandom-seeds, etc.). 
+In the generated SBOM for such packages version is set to the Openwrt distro version.
+
+
 Maintenance
 ===========
 

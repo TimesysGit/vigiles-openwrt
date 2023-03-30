@@ -15,6 +15,7 @@ import os
 import re
 
 from collections import defaultdict
+from copy import deepcopy
 
 from .utils import write_intm_json
 from .utils import kconfig_to_py
@@ -24,6 +25,9 @@ from .utils import get_makefile_variables
 
 EXCLUDE_PKGS = ["toolchain"]
 PACKAGE_SUPPLIER = "Organization: OpenWrt ()"
+AVAILABLE_PKGS = {}
+TOOLCHAIN_PKGS = {}
+ALIAS_PKG_MAP = {}
 
 
 def _get_pkgs(path):
@@ -33,9 +37,10 @@ def _get_pkgs(path):
             if not f.endswith("Makefile"):
                 continue
             pkgname = kconfig_to_py(os.path.basename(root))
-            if pkgname in EXCLUDE_PKGS:
-                continue
             pkgpath = os.path.join(root, f)
+            if pkgname in EXCLUDE_PKGS:
+                TOOLCHAIN_PKGS[pkgname] = {"makefile": pkgpath}
+                continue
             pkgs[pkgname] = {"makefile": pkgpath}
     return pkgs
 
@@ -197,6 +202,7 @@ def _get_pkg_make_info(pkgs, bdir):
                 alias_pkgs[subpkg]["cve_version"] = pkgs[pkg].get("cve_version")
                 alias_pkgs[subpkg]["package_supplier"] = PACKAGE_SUPPLIER
                 alias_pkgs[subpkg]["download_protocol"] = pkgs[pkg].get("download_protocol")
+            ALIAS_PKG_MAP[subpkg] = pkg
     pkgs.update(alias_pkgs)
     return pkgs
 
@@ -263,6 +269,7 @@ def _patched_cves(src_patches, vgls):
 def get_available_pkgs(vgls):
     avail_pkgs = _get_pkgs(vgls["bdir"])
     avail_pkgs_info = _get_pkg_make_info(avail_pkgs, vgls["bdir"])
+    AVAILABLE_PKGS.update(deepcopy(avail_pkgs_info))
     return avail_pkgs_info
 
 
@@ -293,7 +300,7 @@ def get_package_info(vgls):
         pkgs = defaultdict()
         for pkg in pkg_list:
             if pkg in pkg_rawname_list:
-                pkgs[pkg] = full_pkg_list[full_pkg_list[pkg].get("name")]
+                pkgs[pkg] = deepcopy(full_pkg_list[full_pkg_list[pkg].get("name")])
         return pkgs
 
     # Patch management in openwrt https://openwrt.org/docs/guide-developer/overview
@@ -352,6 +359,7 @@ def get_package_info(vgls):
     for name in known_packages.keys():
         _pkg_patches(known_packages[name])
         known_packages[name]["rawname"] = name
+        known_packages[name]["component_type"] = ["component"]
 
     dbg("Getting Toolchain Info ...")
     pkg_dict = get_toolchain_info(vgls, known_packages)
@@ -456,14 +464,31 @@ def get_toolchain_info(vgls, pkg_dict):
     libc_package, libc_info = get_libc_info(vgls)
     if libc_info:
         pkg_dict[libc_package] = libc_info
+        pkg_dict[libc_package]["component_type"] = ["component"]
         dbg("%s version: %s" % (libc_info["name"], libc_info["version"]))
 
     libgcc_info = get_libgcc_info(vgls)
     if libgcc_info:
         pkg_dict["libgcc"] = libgcc_info
+        pkg_dict["libgcc"]["component_type"] = ["component"]
         dbg("%s version: %s" % (libgcc_info["name"], libgcc_info["version"]))
 
     return pkg_dict
+
+
+def add_checksum_to_pkg_info(pkg_info, checksum):
+    if len(checksum) == 64:
+        algorithm = "SHA256"
+    elif len(checksum) == 32:
+        algorithm = "MD5"
+    else:
+        dbg("Checksum value not supported for pkg: {}".format(pkg_info.get("name")))
+        return
+
+    pkg_info["checksums"].append({
+        "algorithm": algorithm,
+        "checksum_value": checksum
+        })
 
 
 def get_pkg_hash_from_make_cmd(pkg, mkvar_list, mkfile_dir, bdir, pkg_info):
@@ -479,18 +504,7 @@ def get_pkg_hash_from_make_cmd(pkg, mkvar_list, mkfile_dir, bdir, pkg_info):
         checksum = None
 
     if checksum:
-        if len(checksum) == 64:
-            algorithm = "SHA256"
-        elif len(checksum) == 32:
-            algorithm = "MD5"
-        else:
-            dbg("Checksum value not supported for pkg: {}".format(pkg))
-            return
-
-        pkg_info["checksums"].append({
-            "algorithm": algorithm,
-            "checksum_value": checksum
-            })
+        add_checksum_to_pkg_info(pkg_info, checksum)
 
 
 def get_pkg_checksums(vgls):
@@ -534,23 +548,111 @@ def get_pkg_checksums(vgls):
                     matches = re.finditer(pattern, mkfile)
 
                 for match in matches:
-                    algorithm = ""
                     hash = match.group(2).strip()
-                    if len(hash) == 64:
-                        algorithm = "SHA256"
-                    elif len(hash) == 32:
-                        algorithm = "MD5"
-                    else:
-                        dbg("Checksum value not supported for pkg: {}".format(pkg))
-                        continue
-                    pkg_info["checksums"].append({
-                        "algorithm": algorithm,
-                        "checksum_value": hash
-                        })
+                    add_checksum_to_pkg_info(pkg_info, hash)
     if no_makefiles:
         warn("Makefile not found for packages : {}".format(no_makefiles))
 
     # remove makefile path
     pkg_dict = _remove_makefile_from_pkg_data(pkg_dict)
 
-    return pkg_dict 
+    return pkg_dict
+
+
+def add_dependencies(pkg, pkg_dict, bdir):
+    def _parse_deps(dep_str):
+        deps = re.findall(r"\b[a-z]+(?:[_/-][a-z]+)*\b", dep_str)
+        parsed_deps = set()
+        available_pkgs = AVAILABLE_PKGS.keys()
+        for dep in deps:
+            if dep not in available_pkgs:
+                continue
+            parsed_deps.add(dep)
+        return sorted(list(parsed_deps))
+
+    def _get_build_dependencies(pkg, mkfile):
+        dep_str = re.search(r"\bPKG_BUILD_DEPENDS\b(.*)", mkfile)
+        if dep_str:
+            return _parse_deps(dep_str.group(0))
+        return []
+        
+    def _get_runtime_dependencies(pkg, mkfile):
+        pattern = r"(?s)\bdefine Package/{pkg}\b(?:(?!\bendef\b)(?!^$).)*DEPENDS(?:(?!\bdefine Package/{pkg}\b)(?!^$).)*\bendef\b".format(pkg=re.escape(pkg))
+        block = re.search(pattern, mkfile)
+        if block:
+            dep_str = re.search(r"\bDEPENDS\b(.*)", block.group(0).replace("\\\n", ""))
+            if dep_str:
+                return _parse_deps(dep_str.group(0))
+        return []
+
+    def include_deps_as_pkgs(deps, component_type, pkg_dict):
+        dependency_only_comment = {
+            "build": "Dependency Only; This component was identified as a build dependency by Vigiles",
+            "runtime": "Dependency Only; This component was identified as a runtime dependency by Vigiles",
+            "build&runtime": "Dependency Only; This component was identified as a build and runtime dependency by Vigiles",
+        }
+        for dep in deps:
+            if dep not in pkg_dict.keys():
+                alias_pkg = ALIAS_PKG_MAP.get(dep, dep)
+                pkg_info = AVAILABLE_PKGS.get(alias_pkg)
+                if not pkg_info:
+                    continue
+                pkg_dict[dep] = deepcopy(pkg_info)
+                pkg_dict[dep]["comment"] = dependency_only_comment[component_type]
+                pkg_dict[dep]["component_type"] = [component_type]
+                add_dependencies(dep, pkg_dict, bdir)
+            else:
+                component_type_list = pkg_dict[dep].get("component_type", [])
+                if not component_type_list:
+                    continue
+                if component_type and component_type not in component_type_list:
+                    pkg_dict[dep]["component_type"].append(component_type)
+                    pkg_dict[dep]["component_type"].sort()
+                if "component" not in component_type_list:
+                    if "build" in component_type_list and "runtime" in component_type_list:
+                        pkg_dict[dep]["comment"] = dependency_only_comment["build&runtime"]
+                    elif "build" in component_type_list:
+                        pkg_dict[dep]["comment"] = dependency_only_comment["build"]
+                    elif "runtime" in component_type_list:
+                        pkg_dict[dep]["comment"] = dependency_only_comment["runtime"]
+
+    makefile = AVAILABLE_PKGS.get(pkg, {}).get("makefile", "")
+    if not makefile:
+        alias = ALIAS_PKG_MAP.get(pkg)
+        makefile = AVAILABLE_PKGS.get(alias, {}).get("makefile", "")
+    if os.path.exists(makefile):
+        with open(makefile, "r") as file:
+            mkfile = file.read()
+            # runtime dependencies
+            runtime_deps = _get_runtime_dependencies(pkg, mkfile)
+            dbg("Runtime dependencies for %s: %s" % (pkg, runtime_deps))
+            include_deps_as_pkgs(runtime_deps, "runtime", pkg_dict)
+            
+            # build dependencies
+            build_deps = _get_build_dependencies(pkg, mkfile)
+            dbg("Build dependencies for %s: %s" % (pkg, build_deps))
+            include_deps_as_pkgs(build_deps, "build", pkg_dict)  
+    else:
+        warn("Unable to find makefile for %s" % pkg)
+        runtime_deps = []
+        build_deps = []
+
+    pkg_dict[pkg].update({"dependencies": {
+        "build": build_deps,
+        "runtime": runtime_deps
+    }})
+    
+
+def get_toolchain_pkgs(vgls):
+    toolchain_pkgs_info = _get_pkg_make_info(TOOLCHAIN_PKGS, vgls["bdir"])
+    AVAILABLE_PKGS.update(deepcopy(toolchain_pkgs_info))
+     
+
+def get_package_dependencies(vgls):
+    get_toolchain_pkgs(vgls)
+    pkg_dict = deepcopy(vgls["packages"])
+    pkg_list = list(vgls["packages"].keys())
+    for pkg in pkg_list:
+        add_dependencies(pkg, pkg_dict, vgls["bdir"])
+    
+    vgls["packages"] = pkg_dict

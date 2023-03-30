@@ -133,17 +133,23 @@ def _append_openwrt_package(vgls, manifest):
     ver = sanitize_openwrt_version(manifest["distro_version"])
     lic = get_openwrt_license(vgls)
     tmp = {"checksums": [],
+           "component_type": ["component"],
            "cpe_id": UNKNOWN,
            "cve_product": "openwrt",
            "cve_version": ver,
+           "dependencies": {
+               "build": [],
+               "runtime": []
+            },
+           "download_location": UNKNOWN,
+           "download_protocol": UNKNOWN,
            "license": lic,
            "name": "openwrt",
            "package_supplier": PACKAGE_SUPPLIER,
            "patches": [],
            "rawname": "openwrt",
-           "download_location": UNKNOWN,
-           "download_protocol": UNKNOWN,
-           "version": ver}
+           "version": ver
+           }
     manifest["packages"]["openwrt"] = tmp
 
 
@@ -205,7 +211,22 @@ def _expand_package_download_location(vgls, manifest):
                 package_info["download_location"] = tmp.replace("@KERNEL", kernel_mirror)
 
 
+def _set_package_field_defaults(manifest):
+    for pkg, pkg_dict in manifest["packages"].items():
+        if not pkg_dict.get("version") or pkg_dict.get("version") == "unset":
+            pkg_dict["version"] = pkg_dict["cve_version"] = manifest["distro_version"]
+        if not pkg_dict.get("cve_version") or pkg_dict.get("cve_version") == "unset":
+            pkg_dict["cve_version"] = pkg_dict["version"]
+        if not pkg_dict.get("name", ""):
+            pkg_dict["name"] = pkg
+        if not pkg_dict.get("cve_product", ""):
+            pkg_dict["cve_product"] = pkg
+        if not pkg_dict.get("license", ""):
+            pkg_dict["license"] = "unknown"
+
+
 def amend_manifest(vgls, manifest):
+    _set_package_field_defaults(manifest)
     addl_pkgs = _get_addl_packages(vgls["addl"])
     if addl_pkgs:
         manifest.update(addl_pkgs)

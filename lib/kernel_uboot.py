@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 from .utils import mkdirhier
 from .utils import dbg, info, warn, err, UNKNOWN, UNSET
 from .utils import get_makefile_variables
-from .packages import _patched_cves, PACKAGE_SUPPLIER
+from .packages import _patched_cves, PACKAGE_SUPPLIER, add_dependencies
 
 
 def _get_toolchain_dir_name(vgls):
@@ -465,6 +465,7 @@ def get_kernel_info(vgls):
     linux_dict["download_protocol"] = UNKNOWN
     dbg("Kernel Version: %s" % ver)
     linux_dict["patches"], linux_dict["patched_cves"] = _get_kernel_patches(vgls, ver)
+    linux_dict["component_type"] = ["component"]
 
     kconfig_out = "none"
     config_opts = _kernel_config(vgls, kdir)
@@ -474,6 +475,7 @@ def get_kernel_info(vgls):
         dbg("Kernel Config: Wrote %d options to %s" % (len(config_opts), kconfig_out))
     vgls["kconfig"] = kconfig_out
     vgls["packages"]["linux"] = linux_dict
+    add_dependencies(linux_dict["name"],vgls["packages"], vgls["bdir"])
     return vgls
 
 
@@ -502,6 +504,7 @@ def get_uboot_info(vgls):
     uboot_dict["download_protocol"] = UNKNOWN
     uboot_dict["package_supplier"] = PACKAGE_SUPPLIER
     uboot_dict["patches"], uboot_dict["patched_cves"] = _get_uboot_patches(vgls)
+    uboot_dict["component_type"] = ["component"]
 
     uconfig_out = "none"
     config_opts = _uboot_config(vgls, udir)
@@ -511,4 +514,5 @@ def get_uboot_info(vgls):
         dbg("U-Boot Config: Wrote %d options to %s" % (len(config_opts), uconfig_out))
     vgls["uconfig"] = uconfig_out
     vgls["packages"]["u-boot"] = uboot_dict
+    add_dependencies(uboot_dict["name"],vgls["packages"], vgls["bdir"])
     return vgls

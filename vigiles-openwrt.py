@@ -211,6 +211,9 @@ def collect_metadata(vgls):
     dbg("Getting Package List ...")
     vgls["packages"] = packages.get_package_info(vgls)
 
+    dbg("Getting Package Dependencies ...")
+    packages.get_package_dependencies(vgls)
+
     if not vgls["packages"]:
         sys.exit(1)
 
