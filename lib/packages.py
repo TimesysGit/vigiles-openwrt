@@ -365,7 +365,7 @@ def get_package_info(vgls):
 
 def get_libc_info(vgls):
     if not "config-libc" in vgls["config"]:
-        return
+        return None, None
     libc_package = vgls["config"]["config-libc"]
     make_path = os.path.join(vgls["bdir"], "toolchain", libc_package, "common.mk")
     pkg_name, pkg_version, pkg_license, package_supplier = libc_package, UNSET, UNKNOWN, PACKAGE_SUPPLIER
@@ -409,7 +409,7 @@ def get_libc_info(vgls):
 
 def get_libgcc_info(vgls):
     if not "config-package-libgcc" in vgls["config"]:
-        return None, None
+        return None
 
     make_path = os.path.join(vgls["bdir"], "toolchain", "gcc", "common.mk")
     pkg_name, pkg_license, package_supplier = "gcc", UNKNOWN, PACKAGE_SUPPLIER
