@@ -496,6 +496,7 @@ def get_uboot_info(vgls):
     uboot_dict["license"] = _get_license_from_makefile(udir)
     uboot_dict["cve_version"] = uboot_dict["version"] = ver
     dbg("U-Boot Version: %s" % ver)
+    uboot_dict["makefile"] = os.path.join(udir, "Makefile")
     uboot_dict["name"] = uboot_dict["cve_product"] = uboot_dict["rawname"] = "u-boot"
     uboot_dict["download_location"] = _get_uboot_download_location(vgls)
     uboot_dict["download_protocol"] = UNKNOWN

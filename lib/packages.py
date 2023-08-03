@@ -356,9 +356,6 @@ def get_package_info(vgls):
     dbg("Getting Toolchain Info ...")
     pkg_dict = get_toolchain_info(vgls, known_packages)
 
-    # remove makefile path
-    pkg_dict = _remove_makefile_from_pkg_data(pkg_dict)
-
     write_intm_json(vgls, "config-packages", pkg_dict)
     return pkg_dict
 
@@ -386,6 +383,7 @@ def get_libc_info(vgls):
         "rawname": libc_package,
         "version": pkg_version,
         "license": pkg_license,
+        "makefile": make_path,
         "cve_product": libc_package,
         "cve_version": pkg_version,
         "package_supplier": package_supplier,
@@ -426,6 +424,7 @@ def get_libgcc_info(vgls):
         "rawname": "libgcc",
         "version": vgls["config"].get("config-gcc-version"),
         "license": pkg_license,
+        "makefile": make_path,
         "cve_product": pkg_name,
         "cve_version": vgls["config"].get("config-gcc-version"),
         "package_supplier": package_supplier,
@@ -465,3 +464,93 @@ def get_toolchain_info(vgls, pkg_dict):
         dbg("%s version: %s" % (libgcc_info["name"], libgcc_info["version"]))
 
     return pkg_dict
+
+
+def get_pkg_hash_from_make_cmd(pkg, mkvar_list, mkfile_dir, bdir, pkg_info):
+    try:
+        my_env = os.environ.copy()
+        my_env["TOPDIR"] = bdir
+        checksum = get_makefile_variables(
+            mkfile_dir, my_env, mkvar_list
+        )
+        checksum = checksum[0]
+    except Exception as exc:
+        dbg(f'Unable to parse package checksum: {exc}')
+        checksum = None
+
+    if checksum:
+        if len(checksum) == 64:
+            algorithm = "SHA256"
+        elif len(checksum) == 32:
+            algorithm = "MD5"
+        else:
+            dbg("Checksum value not supported for pkg: {}".format(pkg))
+            return
+
+        pkg_info["checksums"].append({
+            "algorithm": algorithm,
+            "checksum_value": checksum
+            })
+
+
+def get_pkg_checksums(vgls):
+    pkg_dict = vgls["packages"]
+    no_makefiles = []
+    for pkg, pkg_info in pkg_dict.items():
+        pkg_info["checksums"] = []
+        mkfile_path = pkg_info.get("makefile", "")
+        if not mkfile_path:
+            no_makefiles.append(pkg)
+            continue
+
+        if pkg == "linux":
+            mkvar_list = ["val.LINUX_KERNEL_HASH"]
+            linux_dir = os.path.dirname(mkfile_path)
+            get_pkg_hash_from_make_cmd(pkg, mkvar_list, linux_dir, vgls["bdir"], pkg_info)
+            continue
+
+        if pkg == "u-boot":
+            mkvar_list = ["val.PKG_MIRROR_HASH", "val.PKG_MIRROR_MD5SUM", "val.PKG_HASH"]
+            uboot_dir = os.path.join(
+                vgls.get("bdir"), 
+                "package", 
+                "boot", 
+                "uboot-%s" % vgls["config"].get("config-target-board", "")
+            )
+            get_pkg_hash_from_make_cmd(pkg, mkvar_list, uboot_dir, vgls["bdir"], pkg_info)
+            continue
+
+        if os.path.exists(mkfile_path):
+            with open(mkfile_path, "r") as f:
+                mkfile = f.read()
+                pattern = r"^ifeq.*PKG_VERSION.*{}.*\n\s*(PKG_HASH|PKG_MIRROR_HASH|PKG_MIRROR_MD5SUM)\s*:=\s*([a-f0-9]+)".format(
+                    re.escape(pkg_info["version"])
+                    )
+                match = re.search(pattern, mkfile, re.MULTILINE)
+                if match:
+                    matches = [match]
+                else:
+                    pattern = r"(PKG_HASH|PKG_MIRROR_HASH|PKG_MIRROR_MD5SUM)\s*:=\s*([a-f0-9]+)"
+                    matches = re.finditer(pattern, mkfile)
+
+                for match in matches:
+                    algorithm = ""
+                    hash = match.group(2).strip()
+                    if len(hash) == 64:
+                        algorithm = "SHA256"
+                    elif len(hash) == 32:
+                        algorithm = "MD5"
+                    else:
+                        dbg("Checksum value not supported for pkg: {}".format(pkg))
+                        continue
+                    pkg_info["checksums"].append({
+                        "algorithm": algorithm,
+                        "checksum_value": hash
+                        })
+    if no_makefiles:
+        warn("Makefile not found for packages : {}".format(no_makefiles))
+
+    # remove makefile path
+    pkg_dict = _remove_makefile_from_pkg_data(pkg_dict)
+
+    return pkg_dict 

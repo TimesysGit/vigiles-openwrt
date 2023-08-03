@@ -221,6 +221,9 @@ def collect_metadata(vgls):
     dbg("Getting U-Boot Info ...")
     get_uboot_info(vgls)
 
+    dbg("Getting Package Checksum Info ...")
+    packages.get_pkg_checksums(vgls)
+
 
 def run_check(vgls):
     kconfig_path = ""

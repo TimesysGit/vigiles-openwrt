@@ -45,7 +45,7 @@ def _init_manifest(vgls):
             pkgname: {
                 k.replace("-", "_"): v
                 for k, v in pdict.items()
-                if v and k not in excluded_fields
+                if k not in excluded_fields
             }
             for pkgname, pdict in pkgs.items()
         }

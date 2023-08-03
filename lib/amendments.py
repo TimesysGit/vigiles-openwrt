@@ -132,7 +132,8 @@ def _filter_excluded_packages(vgls_pkgs, excld_pkgs):
 def _append_openwrt_package(vgls, manifest):
     ver = sanitize_openwrt_version(manifest["distro_version"])
     lic = get_openwrt_license(vgls)
-    tmp = {"cpe_id": UNKNOWN,
+    tmp = {"checksums": [],
+           "cpe_id": UNKNOWN,
            "cve_product": "openwrt",
            "cve_version": ver,
            "license": lic,
