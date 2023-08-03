@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 from .utils import mkdirhier
 from .utils import dbg, info, warn, err, UNKNOWN, UNSET
 from .utils import get_makefile_variables
-from .packages import _patched_cves
+from .packages import _patched_cves, PACKAGE_SUPPLIER
 
 
 def _get_toolchain_dir_name(vgls):
@@ -499,6 +499,7 @@ def get_uboot_info(vgls):
     uboot_dict["name"] = uboot_dict["cve_product"] = uboot_dict["rawname"] = "u-boot"
     uboot_dict["download_location"] = _get_uboot_download_location(vgls)
     uboot_dict["download_protocol"] = UNKNOWN
+    uboot_dict["package_supplier"] = PACKAGE_SUPPLIER
     uboot_dict["patches"], uboot_dict["patched_cves"] = _get_uboot_patches(vgls)
 
     uconfig_out = "none"

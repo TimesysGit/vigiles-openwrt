@@ -14,6 +14,7 @@ import os
 from collections import defaultdict
 
 from .openwrt import get_openwrt_license
+from .packages import PACKAGE_SUPPLIER
 from .utils import dbg, info, warn, sanitize_openwrt_version, UNKNOWN
 
 
@@ -136,6 +137,7 @@ def _append_openwrt_package(vgls, manifest):
            "cve_version": ver,
            "license": lic,
            "name": "openwrt",
+           "package_supplier": PACKAGE_SUPPLIER,
            "patches": [],
            "rawname": "openwrt",
            "download_location": UNKNOWN,
