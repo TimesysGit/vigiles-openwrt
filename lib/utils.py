@@ -151,6 +151,8 @@ def get_makefile_variables(makefile_dir, env, mk_varlist, mk_extra=None):
         stderr=subprocess.PIPE,
         env=env
     )
-    out, _ = mk_vals.communicate()
+    out, err = mk_vals.communicate()
+    if err:
+        raise Exception(err)
     op = out.decode().strip().splitlines()
     return op

@@ -76,7 +76,7 @@ def _get_pkg_version(mk_info, bdir, makefile_dir):
                     makefile_dir, my_env, ["val.PKG_VERSION"]
                 )[0]
             except Exception as exc:
-                dbg(f'Unable to parse package version: {exc}')
+                warn(f'Unable to parse package version for {mk_info.get("PKG_NAME", "pkg")}: {exc}')
         else:
             version = mk_info["PKG_VERSION"]
     elif "PKG_UPSTREAM_VERSION" in mk_info.keys() and mk_info["PKG_UPSTREAM_VERSION"]:
