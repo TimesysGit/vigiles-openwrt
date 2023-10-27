@@ -266,6 +266,40 @@ def _patched_cves(src_patches, vgls):
     return {key: sorted(patched_dict[key]) for key in sorted(patched_dict.keys())}
 
 
+# Patch management in openwrt https://openwrt.org/docs/guide-developer/overview
+# https://openwrt.org/docs/guide-developer/overview#how_a_package_is_compiled
+def _pkg_patches(vgls, pkg):
+    makefile = pkg.get("makefile", "")
+    patch_list = []
+
+    if not makefile:
+        return
+
+    makedir = os.path.dirname(makefile)
+    if os.path.exists(os.path.join(makedir, "patches")):
+        patch_list.extend(
+            fnmatch.filter(
+                [p.path for p in os.scandir(os.path.join(makedir, "patches"))],
+                "*.patch",
+            )
+        )
+
+    if patch_list:
+        pkg["patches"] = sorted([os.path.basename(p) for p in patch_list])
+        pkg["patched_cves"] = _patched_cves(patch_list, vgls)
+        if pkg["patched_cves"]:
+            dbg(
+                "Patched CVEs for %s" % pkg["name"],
+                [
+                    "Total Patches: %d" % len(patch_list),
+                    "Patch List: %s"
+                    % json.dumps(patch_list, indent=12, sort_keys=True),
+                    "CVEs: %s"
+                    % json.dumps(pkg["patched_cves"], indent=12, sort_keys=True),
+                ],
+            )
+
+
 def get_available_pkgs(vgls):
     avail_pkgs = _get_pkgs(vgls["bdir"])
     avail_pkgs_info = _get_pkg_make_info(avail_pkgs, vgls["bdir"])
@@ -303,39 +337,6 @@ def get_package_info(vgls):
                 pkgs[pkg] = deepcopy(full_pkg_list[full_pkg_list[pkg].get("name")])
         return pkgs
 
-    # Patch management in openwrt https://openwrt.org/docs/guide-developer/overview
-    # https://openwrt.org/docs/guide-developer/overview#how_a_package_is_compiled
-    def _pkg_patches(pkg):
-        makefile = pkg.get("makefile", "")
-        patch_list = []
-
-        if not makefile:
-            return
-
-        makedir = os.path.dirname(makefile)
-        if os.path.exists(os.path.join(makedir, "patches")):
-            patch_list.extend(
-                fnmatch.filter(
-                    [p.path for p in os.scandir(os.path.join(makedir, "patches"))],
-                    "*.patch",
-                )
-            )
-
-        if patch_list:
-            pkg["patches"] = sorted([os.path.basename(p) for p in patch_list])
-            pkg["patched_cves"] = _patched_cves(patch_list, vgls)
-            if pkg["patched_cves"]:
-                dbg(
-                    "Patched CVEs for %s" % pkg["name"],
-                    [
-                        "Total Patches: %d" % len(patch_list),
-                        "Patch List: %s"
-                        % json.dumps(patch_list, indent=12, sort_keys=True),
-                        "CVEs: %s"
-                        % json.dumps(pkg["patched_cves"], indent=12, sort_keys=True),
-                    ],
-                )
-
     # List of packages selected in .config
     config_pkg_list = _config_packages(config_dict)
     if not config_pkg_list:
@@ -357,7 +358,7 @@ def get_package_info(vgls):
 
     # Add patch info
     for name in known_packages.keys():
-        _pkg_patches(known_packages[name])
+        _pkg_patches(vgls, known_packages[name])
         known_packages[name]["rawname"] = name
         known_packages[name]["component_type"] = ["component"]
 
@@ -654,5 +655,8 @@ def get_package_dependencies(vgls):
     pkg_list = list(vgls["packages"].keys())
     for pkg in pkg_list:
         add_dependencies(pkg, pkg_dict, vgls["bdir"])
+    
+    for pkg, pkg_info in pkg_dict.items():
+        _pkg_patches(vgls, pkg_info)
     
     vgls["packages"] = pkg_dict
