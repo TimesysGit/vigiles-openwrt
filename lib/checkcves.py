@@ -16,6 +16,7 @@ import json
 import urllib.parse
 
 from lib import llapi as ll
+from lib.utils import warn
 
 NVD_BASE_URL = "https://nvd.nist.gov/vuln/detail/"
 API_DOC = 'https://linuxlink.timesys.com/docs/wiki/engineering/LinuxLink_Key_File'
@@ -337,6 +338,10 @@ def _get_credentials(vgls_chk):
         print("Error: %s\n" % e)
         print(get_usage())
         sys.exit(1)
+
+    if email or key:
+        if subfolder_name and not dashboard_tokens.get('product_or_group'):
+            warn("Subfolder is specified, but no dashboard config found. SBOM will be uploaded in Private Workspace")
 
     vgls_creds = {
         "email": email,
