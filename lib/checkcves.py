@@ -27,6 +27,13 @@ INFO_PAGE = INFO_PAGE_DOMAIN + INFO_PAGE_PATH
 
 bogus_whitelist = "CVE-1234-1234"
 
+class InvalidDashboardConfig(BaseException):
+    pass
+
+
+class InvalidLinuxlinkKey(BaseException):
+    pass
+
 
 def get_usage():
     return (
@@ -275,6 +282,57 @@ def print_whitelist(wl, outfile=None):
         print("\t(Nothing is Whitelisted)", file=outfile)
 
 
+def check_dashboard_config(dashboard_config, default_dc_used):
+    err_prefix = "Invalid Dashboard Config."
+    err_suffix = " Report will be generated in Private Workspace instead."
+    
+    try:
+        with open(dashboard_config, "r") as f:
+            conf = json.load(f)
+            if conf.get("product", conf.get("group")):
+                if len(conf) > 1:
+                    if conf.get("folder"):
+                        return
+                else:
+                    return
+            err_msg = err_prefix + err_suffix
+    except FileNotFoundError:
+        if default_dc_used:
+            return
+        err_msg = "Dashboard config doesn't exists at %s." %dashboard_config + err_suffix
+    except json.decoder.JSONDecodeError:
+        err_msg = err_prefix + err_suffix
+    except Exception as e:
+        err_msg = "Unable to parse Dashboard config : %s." % e + err_suffix
+    raise InvalidDashboardConfig(err_msg)
+
+
+def check_linuxlink_key(key, default_key_used):
+    err_prefix = "Invalid Linuxlink key."
+    err_suffix = " Report will be generated in Demo mode instead."
+    
+    try:
+        with open(key, "r") as f:
+            ll_key = json.load(f)
+            if ll_key.get("key") and ll_key.get("email"):
+                if len(ll_key) > 2:
+                    is_enterprise = ll_key.get("is_enterprise")
+                    if isinstance(is_enterprise, bool):
+                        return
+                else:
+                    return
+            err_msg = err_prefix + err_suffix
+    except FileNotFoundError:
+        if default_key_used:
+            return
+        err_msg = "Linuxlink key doesn't exists at %s." % key + err_suffix
+    except json.decoder.JSONDecodeError:
+        err_msg = err_prefix + err_suffix
+    except Exception as e:
+        err_msg = "Unable to parse Linuxlink: %s." % e + err_suffix
+    raise InvalidLinuxlinkKey(err_msg)
+
+
 def _get_credentials(vgls_chk):
     home_dir = os.path.expanduser("~")
     timesys_dir = os.path.join(home_dir, "timesys")
@@ -291,6 +349,8 @@ def _get_credentials(vgls_chk):
     sf_param = vgls_chk.get('subfolder_name', '')
     sf_default = ''
 
+    default_key_used = False
+    default_dc_used = False
     if kf_env:
         print("Vigiles: Using LinuxLink Key from Environment: %s" % kf_env)
         key_file = kf_env
@@ -300,6 +360,7 @@ def _get_credentials(vgls_chk):
     else:
         print("Vigiles: Trying LinuxLink Key Default: %s" % kf_default)
         key_file = kf_default
+        default_key_used = True
 
     if dc_env:
         print("Vigiles: Using Dashboard Config from Environment: %s" % dc_env)
@@ -310,6 +371,7 @@ def _get_credentials(vgls_chk):
     else:
         print("Vigiles: Trying Dashboard Config Default: %s" % dc_default)
         dashboard_config = dc_default
+        default_dc_used = True
 
     if sf_env:
         print("Vigiles: Using subfolder name from Environment: %s" % sf_env)
@@ -323,8 +385,11 @@ def _get_credentials(vgls_chk):
 
     vgls_chk["keyfile"] = key_file
     vgls_chk["dashboard"] = dashboard_config
+    vgls_creds = {}
+    dashboard_tokens = {}
 
     try:
+        check_linuxlink_key(key_file, default_key_used)
         key_info = ll.read_keyfile(key_file)
         email = key_info.get('email', None)
         key = key_info.get('key', key_info.get('organization_key', None))
@@ -332,10 +397,21 @@ def _get_credentials(vgls_chk):
         if is_enterprise:
             ll.VigilesURL = key_info.get('server_url', ll.VigilesURL)
 
-        # It is fine if either of these are none, they will just default
-        dashboard_tokens = ll.read_dashboard_config(dashboard_config)
+        # Validate dashboard config
+        # Bypass Validation check for demo mode
+        if email and key:
+            check_dashboard_config(dashboard_config, default_dc_used)
+
+            # It is fine if either of these are none, they will just default
+            dashboard_tokens = ll.read_dashboard_config(dashboard_config)
+    
+    except InvalidLinuxlinkKey as e:
+        print('\nVigiles WARNING: %s\n' % e)
+        return vgls_creds
+    except InvalidDashboardConfig as e:
+        print('\nVigiles WARNING: %s\n' % e)
     except Exception as e:
-        print("Error: %s\n" % e)
+        print('\nVigiles ERROR: %s\n' % e)
         print(get_usage())
         sys.exit(1)
 
@@ -358,10 +434,10 @@ def vigiles_request(vgls_chk):
     resource = "/api/v1/vigiles/manifests"
 
     vgls_creds = _get_credentials(vgls_chk)
-    email = vgls_creds["email"]
-    key = vgls_creds["key"]
-    is_enterprise = vgls_creds['is_enterprise']
-    subfolder_name = vgls_creds['subfolder_name']
+    email = vgls_creds.get("email")
+    key = vgls_creds.get("key")
+    is_enterprise = vgls_creds.get('is_enterprise')
+    subfolder_name = vgls_creds.get('subfolder_name')
     demo = False
 
     # If there was no proper API keyfile, operate in demo mode.
