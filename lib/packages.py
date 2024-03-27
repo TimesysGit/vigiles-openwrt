@@ -72,6 +72,7 @@ def _get_pkg_version(mk_info, bdir, makefile_dir):
             try:
                 my_env = os.environ.copy()
                 my_env["TOPDIR"] = bdir
+                my_env["PATH"] = "{}/staging_dir/host/bin:{}".format(my_env["TOPDIR"], my_env["PATH"])
                 version = get_makefile_variables(
                     makefile_dir, my_env, ["val.PKG_VERSION"]
                 )[0]
@@ -138,6 +139,7 @@ def _get_download_location(pkgs, bdir):
             try:
                 my_env = os.environ.copy()
                 my_env["TOPDIR"] = bdir
+                my_env["PATH"] = "{}/staging_dir/host/bin:{}".format(my_env["TOPDIR"], my_env["PATH"])
                 pkg_source, pkg_url = get_makefile_variables(makefile_dir, my_env, ["val.PKG_SOURCE", "val.PKG_SOURCE_URL"])
                 # select the first pkg source url
                 pkg_url = pkg_url.split(" ")[0]
@@ -496,6 +498,7 @@ def get_pkg_hash_from_make_cmd(pkg, mkvar_list, mkfile_dir, bdir, pkg_info):
     try:
         my_env = os.environ.copy()
         my_env["TOPDIR"] = bdir
+        my_env["PATH"] = "{}/staging_dir/host/bin:{}".format(my_env["TOPDIR"], my_env["PATH"])
         checksum = get_makefile_variables(
             mkfile_dir, my_env, mkvar_list
         )

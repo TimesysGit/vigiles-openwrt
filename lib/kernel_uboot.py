@@ -28,6 +28,7 @@ def _get_toolchain_dir_name(vgls):
     try:
         my_env = os.environ.copy()
         my_env["TOPDIR"] = vgls["bdir"]
+        my_env["PATH"] = "{}/staging_dir/host/bin:{}".format(my_env["TOPDIR"], my_env["PATH"])
         toolchain_dir = get_makefile_variables(makefile_dir, my_env, ["val.TOOLCHAIN_DIR_NAME"])
         return toolchain_dir[0]
     except Exception as _:
@@ -41,6 +42,7 @@ def _get_target_dir_name(vgls):
     try:
         my_env = os.environ.copy()
         my_env["TOPDIR"] = vgls["bdir"]
+        my_env["PATH"] = "{}/staging_dir/host/bin:{}".format(my_env["TOPDIR"], my_env["PATH"])
         target_dir = get_makefile_variables(makefile_dir, my_env, ["val.TARGET_DIR_NAME"])
         return target_dir[0]
     except Exception as _:
@@ -419,6 +421,7 @@ def _get_kernel_download_location(vgls, ver):
         kernel_mirrors = _get_kernel_mirrors(vgls)
         my_env = os.environ.copy()
         my_env["TOPDIR"] = vgls["bdir"]
+        my_env["PATH"] = "{}/staging_dir/host/bin:{}".format(my_env["TOPDIR"], my_env["PATH"])
         linux_site, linux_source = get_makefile_variables(makefile_dir, my_env, ["val.LINUX_SITE", "val.LINUX_SOURCE"], make_override_vars)
         linux_site = _adjust_linux_site(linux_site, ver)
         linux_source = _adjust_linux_source(linux_source, ver)
@@ -442,6 +445,7 @@ def _get_uboot_download_location(vgls):
     try:
         my_env = os.environ.copy()
         my_env["TOPDIR"] = vgls["bdir"]
+        my_env["PATH"] = "{}/staging_dir/host/bin:{}".format(my_env["TOPDIR"], my_env["PATH"])
         pkg_source, pkg_source_url = get_makefile_variables(board_uboot_dir, my_env, ["val.PKG_SOURCE", "val.PKG_SOURCE_URL"])
         pkg_source_urls = pkg_source_url.split(" ")
         # pick first source url and make package download url
