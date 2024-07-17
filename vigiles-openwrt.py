@@ -49,6 +49,8 @@ Arguments:
   -F SUBFOLDER_NAME, --subfolder SUBFOLDER_NAME
                             Name of subfolder to upload manifest to
   -M, --metadata-only       Generate a SBOM without performing a vulnerability scan
+  -e ECOSYSTEMS, --ecosystems ECOSYSTEMS
+                            Comma separated string of ecosystems that should be used for generating reports
 """
 #######################################################################################
 
@@ -167,6 +169,13 @@ def parse_args():
         dest='subfolder_name',
         help='Name of subfolder to upload to', default=''
     )
+    parser.add_argument(
+        '-e',
+        '--ecosystems',
+        dest='ecosystems',
+        default="",
+        help='Comma separated string of ecosystems that should be used for generating reports'
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -186,6 +195,7 @@ def parse_args():
         "whtlst": os.path.abspath(args.whtlst.strip()) if args.whtlst else "",
         'subfolder_name': args.subfolder_name.strip(),
         "do_check": args.do_check,
+        "ecosystems": args.ecosystems.strip()
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -248,6 +258,7 @@ def run_check(vgls):
         "kconfig": kconfig_path,
         "uconfig": uconfig_path,
         'subfolder_name': vgls.get('subfolder_name', ''),
+        "ecosystems": vgls.get("ecosystems", "")
     }
     vigiles_request(vgls_chk)
 

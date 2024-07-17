@@ -27,6 +27,16 @@ INFO_PAGE = INFO_PAGE_DOMAIN + INFO_PAGE_PATH
 
 bogus_whitelist = "CVE-1234-1234"
 
+ALMALINUX = ['AlmaLinux', 'AlmaLinux:8', 'AlmaLinux:9']
+ALPINE = ['Alpine', 'Alpine:v3.10', 'Alpine:v3.11', 'Alpine:v3.12', 'Alpine:v3.13', 'Alpine:v3.14', 'Alpine:v3.15', 'Alpine:v3.16', 'Alpine:v3.17', 'Alpine:v3.18', 'Alpine:v3.19', 'Alpine:v3.2', 'Alpine:v3.20', 'Alpine:v3.3', 'Alpine:v3.4', 'Alpine:v3.5','Alpine:v3.6', 'Alpine:v3.7', 'Alpine:v3.8', 'Alpine:v3.9']
+DEBIAN = ['Debian', 'Debian:10', 'Debian:11', 'Debian:12', 'Debian:13', 'Debian:3.0', 'Debian:3.1', 'Debian:4.0', 'Debian:5.0', 'Debian:6.0', 'Debian:7', 'Debian:8', 'Debian:9']
+ROCKY = ['Rocky Linux', 'Rocky Linux:8', 'Rocky Linux:9']
+UBUNTU = ['Ubuntu', 'Ubuntu:14.04:LTS', 'Ubuntu:16.04:LTS', 'Ubuntu:18.04:LTS', 'Ubuntu:20.04:LTS', 'Ubuntu:22.04:LTS', 'Ubuntu:23.10', 'Ubuntu:24.04:LTS', 'Ubuntu:Pro:14.04:LTS', 'Ubuntu:Pro:16.04:LTS', 'Ubuntu:Pro:18.04:LTS', 'Ubuntu:Pro:20.04:LTS', 'Ubuntu:Pro:22.04:LTS', 'Ubuntu:Pro:24.04:LTS']
+OTHERS = ['Android', 'Bitnami', 'CRAN', 'GIT', 'GSD', 'GitHub Actions', 'Go', 'Hackage', 'Hex', 'Linux', 'Maven', 'NuGet', 'OSS-Fuzz', 'Packagist', 'Pub', 'PyPI', 'RubyGems', 'SwiftURL', 'UVI', 'crates.io', 'npm']
+
+ALL_ECOSYSTEMS = OTHERS + ALMALINUX + ALPINE + DEBIAN + ROCKY + UBUNTU
+
+
 class InvalidDashboardConfig(BaseException):
     pass
 
@@ -107,6 +117,13 @@ def handle_cmdline_args():
     input_group.add_argument(
         "-m", "--manifest", help="JSON image manifest file to check", metavar="FILE"
     )
+    parser.add_argument(
+        '-e',
+        '--ecosystems',
+        dest='ecosystems',
+        default="",
+        help='Comma separated string of ecosystems that should be used for generating reports'
+    )
     return parser.parse_args()
 
 
@@ -123,12 +140,12 @@ def read_manifest(manifest_file):
 def print_cves(result, outfile=None):
     cves = result.get("cves", {})
     if cves:
-        print("\n\n-- Recipe CVEs --", file=outfile)
+        print("\n\n-- Recipe Vulnerabilities --", file=outfile)
         for pkg, info in cves.items():
             for cve in info:
                 print("\n\tRecipe:  %s" % pkg, file=outfile)
                 print("\tVersion: %s" % cve["version"], file=outfile)
-                print("\tCVE ID:  %s" % cve["cve_id"], file=outfile)
+                print("\tID:      %s" % cve["cve_id"], file=outfile)
                 print("\tURL:     %s%s" % (NVD_BASE_URL, cve["cve_id"]), file=outfile)
                 print("\tCVSSv3:  %s" % cve["cvss"], file=outfile)
                 print("\tVector:  %s" % cve["vector"], file=outfile)
@@ -138,6 +155,44 @@ def print_cves(result, outfile=None):
                     print("\tPatched by:", file=outfile)
                     for patch in patches:
                         print("\t* %s" % patch, file=outfile)
+
+
+def print_ecosystem_vulns(result, outfile=None):
+    vuln_keys = [
+        "ASB",
+        "CAN",
+        "DLA",
+        "DSA",
+        "DTSA",
+        "GHSA",
+        "GO",
+        "GSD",
+        "GSD",
+        "OSV",
+        "PYSEC",
+        "RUSTSEC",
+        "UVI",
+    ]
+    for key in vuln_keys:
+        vulns = result.get(key)
+        if vulns:
+            for pkg, info in vulns.items():
+                for vuln in info:
+                    print('\n\tRecipe:  %s' % pkg, file=outfile)
+                    version = vuln.get('database_specific', {}).get('version')
+                    if version:
+                        print('\tVersion: %s' % version, file=outfile)
+                    
+                    print('\tID:      %s' % vuln.get('id'), file=outfile)
+                    affected = vuln.get("affected", [])
+                    sources = set()
+                    for info in affected:
+                        source = info.get("database_specific", {}).get("source")
+                        if source and source not in sources:
+                            sources.add(source)
+                            print('\tURL:     %s' % source, file=outfile)
+                    print('\tVector:  %s' % vuln.get('vector'), file=outfile)
+                    print('\tStatus:  %s' % vuln.get('status', 'Unfixed'), file=outfile)
 
 
 def parse_unfixed_cve_counts(counts):
@@ -172,7 +227,7 @@ def print_report_header(result, f_out=None):
 
     report_time = result.get("date", datetime.utcnow().isoformat())
 
-    print("-- Vigiles CVE Scanner --\n\n" "\t%s\n\n" % INFO_PAGE, file=f_out)
+    print("-- Vigiles Vulnerability Scanner --\n\n" "\t%s\n\n" % INFO_PAGE, file=f_out)
     print("-- Date Generated (UTC) --\n", file=f_out)
     print("\t%s" % report_time, file=f_out)
 
@@ -183,7 +238,7 @@ def print_report_overview(result, is_demo=False, f_out=None):
 
     if report_path:
         report_url = urllib.parse.urljoin(ll.VigilesURL, report_path)
-        print("\n-- Vigiles CVE Report --", file=f_out)
+        print("\n-- Vigiles Vulnerability Report --", file=f_out)
         print("\n\tView detailed online report at:\n" "\t  %s" % report_url, file=f_out)
     elif product_path:
         product_url = urllib.parse.urljoin(ll.VigilesURL, product_path)
@@ -235,7 +290,7 @@ def print_summary(result, outfile=None):
 
     def show_demo_summary(f_out=outfile):
         cves = result.get("cves", {})
-        print("\n-- Vigiles CVE Overview --", file=f_out)
+        print("\n-- Vigiles Vulnerability Overview --", file=f_out)
         print(
             "\n\tUnfixed: %d\n"
             "\tUnfixed, Patch Available: %d\n"
@@ -259,14 +314,14 @@ def print_summary(result, outfile=None):
 def print_foootnotes(f_out=None):
     print("\n-- Vigiles Footnotes --", file=f_out)
     print(
-        '\t* "CPU" CVEs are filed against the hardware.\n'
+        '\t* "CPU" Vulnerabilities are filed against the hardware.\n'
         "\t  They may be fixed or mitigated in other components such as "
         "the kernel or compiler.\n",
         file=f_out,
     )
 
     print(
-        '\t* "Whitelist" Recipes and CVEs are listed in the '
+        '\t* "Whitelist" Recipes and Vulnerabilities are listed in the '
         '"VIGILES_WHITELIST" variable.\n'
         "\t  They are NOT included in the report.\n",
         file=f_out,
@@ -274,7 +329,7 @@ def print_foootnotes(f_out=None):
 
 
 def print_whitelist(wl, outfile=None):
-    print("\n-- Vigiles CVE Whitelist --\n", file=outfile)
+    print("\n-- Vigiles Vulnerability Whitelist --\n", file=outfile)
     if wl:
         for item in sorted(wl):
             print("\t* %s" % item, file=outfile)
@@ -514,7 +569,26 @@ def vigiles_request(vgls_chk):
     if uboot_config:
         request["uboot_config"] = uboot_config
 
-    print("Vigiles: Requesting image analysis from LinuxLink ...\n", file=sys.stderr)
+    ecosystems = []
+    ecosystems_str = vgls_chk.get('ecosystems', '')
+    if ecosystems_str:
+        if is_enterprise:
+            if ecosystems_str.lower() == "all":
+                ecosystems = ALL_ECOSYSTEMS
+            else:
+                invalid_ecosystems = set()
+                ecosystems = [esys.strip() for esys in ecosystems_str.split(",")]
+                for ecosystem in ecosystems:
+                    if ecosystem not in ALL_ECOSYSTEMS:
+                        invalid_ecosystems.add(ecosystem)
+                if invalid_ecosystems:
+                    print('Vigiles WARNING: Skipping invalid ecosystems: %s. Refer to README.md for valid ecosystems.' % ",".join(invalid_ecosystems))
+                ecosystems = [e for e in ecosystems if e not in invalid_ecosystems]
+            request['ecosystems'] = ",".join(ecosystems)
+        else:
+            print('Vigiles WARNING: Ecosystems based scanning is available only for enterprise edition')
+
+    print("Vigiles: Requesting image analysis from %s ...\n" % "Enterprise Vigiles" if is_enterprise else "Linuxlink", file=sys.stderr)
 
     result = ll.api_post(email, key, resource, request)
     if not result:
@@ -537,6 +611,8 @@ def vigiles_request(vgls_chk):
 
     if not demo:
         print_cves(result, outfile=outfile)
+        if is_enterprise and ecosystems:
+            print_ecosystem_vulns(result, outfile=outfile)
 
     if not upload_only:
         print_whitelist(whitelist, outfile=outfile)
@@ -558,5 +634,6 @@ if __name__ == "__main__":
         "kconfig": args.kconfig,
         "uconfig": args.uboot_config,
         'subfolder_name': args.subfolder_name,
+        'ecosystems': args.ecosystems.strip()
     }
     vigiles_request(vgls_chk)
