@@ -150,12 +150,12 @@ def print_cves(result, outfile=None):
         for pkg, info in cves.items():
             for cve in info:
                 print("\n\tRecipe:  %s" % pkg, file=outfile)
-                print("\tVersion: %s" % cve["version"], file=outfile)
-                print("\tID:      %s" % cve["cve_id"], file=outfile)
-                print("\tURL:     %s%s" % (NVD_BASE_URL, cve["cve_id"]), file=outfile)
-                print("\tCVSSv3:  %s" % cve["cvss"], file=outfile)
-                print("\tVector:  %s" % cve["vector"], file=outfile)
-                print("\tStatus:  %s" % cve["status"], file=outfile)
+                print("\tVersion: %s" % cve.get("version"), file=outfile)
+                print("\tID:      %s" % cve.get("cve_id"), file=outfile)
+                print("\tURL:     %s%s" % (NVD_BASE_URL, cve.get("cve_id")), file=outfile)
+                print("\tCVSSv3:  %s" % cve.get("cvss"), file=outfile)
+                print("\tVector:  %s" % cve.get("vector"), file=outfile)
+                print("\tStatus:  %s" % cve.get("status"), file=outfile)
                 patches = cve.get("fixedby")
                 if patches:
                     print("\tPatched by:", file=outfile)
@@ -302,9 +302,9 @@ def print_summary(result, outfile=None):
             "\tUnfixed, Patch Available: %d\n"
             "\tFixed: %d"
             % (
-                cves["unfixed_count"],
-                cves["unapplied_count"],
-                cves["fixed_count"],
+                cves.get("unfixed_count"),
+                cves.get("unapplied_count"),
+                cves.get("fixed_count"),
             ),
             file=f_out,
         )
