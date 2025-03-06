@@ -124,6 +124,13 @@ def handle_cmdline_args():
         default="",
         help='Comma separated string of ecosystems that should be used for generating reports'
     )
+    parser.add_argument(
+        '-s',
+        '--subscribe',
+        dest='subscribe',
+        default="",
+        help='Set subscription frequency for sbom report notifications: "none", "daily", "weekly", "monthly"'
+    )
     return parser.parse_args()
 
 
@@ -556,7 +563,6 @@ def vigiles_request(vgls_chk):
 
     request = {
         "manifest": manifest_data,
-        "subscribe": False,
         'group_token' if is_enterprise else 'product_token': vgls_creds.get('product_or_group', ''),
         "folder_token": vgls_creds.get("folder", ""),
         "upload_only": upload_only,
@@ -588,7 +594,21 @@ def vigiles_request(vgls_chk):
         else:
             print('Vigiles WARNING: Ecosystems based scanning is available only for enterprise edition')
 
-    print("Vigiles: Requesting image analysis from %s ...\n" % "Enterprise Vigiles" if is_enterprise else "Linuxlink", file=sys.stderr)
+    subscribe = vgls_chk.get("subscribe")
+    valid_subscribe = ["none", "daily", "weekly", "monthly"]
+    if subscribe:
+        subscribe = subscribe.lower()
+        if is_enterprise:
+            if subscribe in valid_subscribe:
+                request["subscribe"] = subscribe
+            else:
+                print('Vigiles ERROR: Invalid subscription frequency. Choose from: none, daily, weekly, monthly')
+                sys.exit(1)
+        else:
+            print('Vigiles WARNING: The subscribe option is currently only supported with the Enterprise edition')
+
+    print("Vigiles: Requesting image analysis from {} ...\n".format(
+    "Enterprise Vigiles" if is_enterprise else "Linuxlink"), file=sys.stderr)
 
     result = ll.api_post(email, key, resource, request)
     if not result:
@@ -634,6 +654,7 @@ if __name__ == "__main__":
         "kconfig": args.kconfig,
         "uconfig": args.uboot_config,
         'subfolder_name': args.subfolder_name,
-        'ecosystems': args.ecosystems.strip()
+        'ecosystems': args.ecosystems.strip(),
+        'susbscribe': args.subscribe.strip()
     }
     vigiles_request(vgls_chk)

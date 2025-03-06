@@ -51,6 +51,8 @@ Arguments:
   -M, --metadata-only       Generate a SBOM without performing a vulnerability scan
   -e ECOSYSTEMS, --ecosystems ECOSYSTEMS
                             Comma separated string of ecosystems that should be used for generating reports
+  -s SUBSCRIBE, --subscribe SUBSCRIBE
+                            Set subscription frequency for sbom report notifications: "none", "daily", "weekly", "monthly"'
 """
 #######################################################################################
 
@@ -176,6 +178,13 @@ def parse_args():
         default="",
         help='Comma separated string of ecosystems that should be used for generating reports'
     )
+    parser.add_argument(
+        '-s',
+        '--subscribe',
+        dest='subscribe',
+        default="",
+        help='Set subscription frequency for sbom report notifications: "none", "daily", "weekly", "monthly"'
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -195,7 +204,8 @@ def parse_args():
         "whtlst": os.path.abspath(args.whtlst.strip()) if args.whtlst else "",
         'subfolder_name': args.subfolder_name.strip(),
         "do_check": args.do_check,
-        "ecosystems": args.ecosystems.strip()
+        "ecosystems": args.ecosystems.strip(),
+        "subscribe": args.subscribe.strip()
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -258,7 +268,8 @@ def run_check(vgls):
         "kconfig": kconfig_path,
         "uconfig": uconfig_path,
         'subfolder_name': vgls.get('subfolder_name', ''),
-        "ecosystems": vgls.get("ecosystems", "")
+        "ecosystems": vgls.get("ecosystems", ""),
+        "subscribe": vgls.get("subscribe")
     }
     vigiles_request(vgls_chk)
 

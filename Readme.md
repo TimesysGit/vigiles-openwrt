@@ -366,6 +366,22 @@ Others:
 ```
 
 
+### Subscribe SBOM Report Notification (Enterprise Vigiles Only)
+
+SBOM report notifications can be configured with this setting, allowing users to subscribe and set the frequency of their report notifications.
+This feature is currently available for Enterprise vigiles only.
+
+To specify the notification frequency, use the ```-s / --subscribe``` argument and choose one of the following options: `none`, `daily`, `weekly`, `monthly`
+
+>Example to set notification frequency to daily:
+>
+> ```-s "daily"```
+>
+> Or
+>
+> ```--subscribe "daily"```
+
+
 ### Advanced Options
 
 For development purposes, some "Expert" options are available.
