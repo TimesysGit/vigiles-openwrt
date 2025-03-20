@@ -36,12 +36,15 @@ def _get_addl_packages(extra_csv):
         with open(extra_csv) as csv_in:
             reader = csv.reader(csv_in)
             for row in reader:
-                if not len(row):
+                if not any(row):
                     continue
                 if row[0].startswith("#"):
                     continue
 
                 pkg = row[0].strip()
+                if not pkg:
+                    continue
+                
                 if len(row) > 1:
                     ver = row[1].strip()
                 else:
