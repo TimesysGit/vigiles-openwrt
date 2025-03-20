@@ -73,6 +73,14 @@ from lib.utils import dbg, err
 
 
 def parse_args():
+    def valid_config(config):
+        if config.lower() in ["auto", "none"]:
+            return config.lower().strip()
+        config_path = os.path.abspath(config)
+        if os.path.isfile(config_path):
+            return config_path.strip()
+        raise argparse.ArgumentTypeError("Invalid value for config %s. Acceptable values are 'auto', 'none' or a valid config file path" % config)
+    
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-b",
@@ -139,13 +147,17 @@ def parse_args():
         "-k",
         "--kernel-config",
         dest="kconfig",
-        help="Custom Kernel Config to Use"
+        help="Custom Kernel Config to Use",
+        default="auto",
+        type=valid_config
     )
     parser.add_argument(
         "-u",
         "--uboot-config",
         dest="uconfig",
-        help="Custom U-Boot Config(s) to Use"
+        help="Custom U-Boot Config(s) to Use",
+        default="auto",
+        type=valid_config
     )
     parser.add_argument(
         "-A",
@@ -197,8 +209,8 @@ def parse_args():
         "llkey": os.path.abspath(args.llkey.strip()) if args.llkey else "",
         "lldashboard": os.path.abspath(args.lldashboard.strip()) if args.lldashboard else "",
         "upload_only": args.upload_only,
-        "kconfig": os.path.abspath(args.kconfig.strip()) if args.kconfig else "auto",
-        "uconfig": os.path.abspath(args.uconfig.strip()) if args.uconfig else "auto",
+        "kconfig": args.kconfig,
+        "uconfig": args.uconfig,
         "addl": os.path.abspath(args.addl.strip()) if args.addl else "",
         "excld": os.path.abspath(args.excld.strip()) if args.excld else "",
         "whtlst": os.path.abspath(args.whtlst.strip()) if args.whtlst else "",
