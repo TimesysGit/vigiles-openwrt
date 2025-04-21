@@ -197,6 +197,12 @@ def parse_args():
         default="",
         help='Set subscription frequency for sbom report notifications: "none", "daily", "weekly", "monthly"'
     )
+    parser.add_argument(
+        '--kernel-source',
+        dest='kdir',
+        default='',
+        help='Location of custom kernel source directory',
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -217,11 +223,20 @@ def parse_args():
         'subfolder_name': args.subfolder_name.strip(),
         "do_check": args.do_check,
         "ecosystems": args.ecosystems.strip(),
-        "subscribe": args.subscribe.strip()
+        "subscribe": args.subscribe.strip(),
+        "kdir": os.path.abspath(args.kdir.strip()) if args.kdir else None
     }
 
     if not os.path.exists(vgls.get("bdir")):
         err("Invalid path for Openwrt Build directory")
+        sys.exit(1)
+
+    if vgls["kdir"] and not os.path.exists(vgls["kdir"]):
+        err("Invalid path for Kernel source directory")
+        sys.exit(1)
+
+    if vgls["kdir"] and not os.path.exists(os.path.join(vgls["kdir"], "Makefile")):
+        err("Invalid Kernel source directory: Makefile not found")
         sys.exit(1)
 
     if not vgls.get("odir", None):

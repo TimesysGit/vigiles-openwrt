@@ -458,14 +458,18 @@ def _get_uboot_download_location(vgls):
 def get_kernel_info(vgls):
     linux_dict = vgls["packages"]["linux"]
 
-    kdir = _get_kernel_dir(vgls)
+    kdir = vgls.get("kdir")
+    custom_kdir = True if kdir else False
+    if not custom_kdir:
+        kdir = _get_kernel_dir(vgls)
+    dbg("Kernel Source directory: %s" % kdir)
     if not kdir:
         warn("Kernel Config: Kernel Build directory not found.")
         return None
     ver = _get_version_from_makefile(kdir)
     linux_dict["version"] = ver
     linux_dict["cve_version"] = ver
-    linux_dict["download_location"] = _get_kernel_download_location(vgls, ver)
+    linux_dict["download_location"] = _get_kernel_download_location(vgls, ver) if not custom_kdir else UNKNOWN
     linux_dict["download_protocol"] = UNKNOWN
     dbg("Kernel Version: %s" % ver)
     linux_dict["patches"], linux_dict["patched_cves"] = _get_kernel_patches(vgls, ver)

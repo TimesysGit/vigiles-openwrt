@@ -377,6 +377,15 @@ To specify the notification frequency, use the ```-s / --subscribe``` argument a
 > ```--subscribe "daily"```
 
 
+### Specifying Custom Kernel source
+
+This option allows users to specify a custom kernel source directory. If a path is provided using this option, the script will collect metadata from the specified kernel source. If left blank, the script will fall back to using the default kernel source path.
+
+>Example to set Custom Kernel source path:
+>
+> ```--kernel-source path/to/custom/kernel/source```
+
+
 ### Advanced Options
 
 For development purposes, some "Expert" options are available.
