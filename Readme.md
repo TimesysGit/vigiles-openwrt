@@ -1,16 +1,13 @@
-![Timesys Vigiles](https://www.timesys.com/wp-content/uploads/vigiles-cve-monitoring.png "Timesys Vigiles")
-
-
-Timesys Vigiles For OpenWrt
+Vigiles For OpenWrt
 =============================
 
-This is a collection of tools for image manifest generation used for security monitoring and notification as part of the **[Timesys Vigiles](https://www.timesys.com/security/vigiles/)** product offering.
+This is a collection of tools for SBOM generation used for vulnerability monitoring and notification as part of the **[Vigiles](https://www.lynx.com/solutions/vulnerability-mitigation-management)** product offering.
 
 
 What is Vigiles?
 ================
 
-Vigiles is a vulnerability management tool that provides build-time CVE Analysis of OpenWrt target images. It does this by collecting metadata about packages to be installed and uploading it to be compared against the Timesys CVE database.A high-level overview of the detected vulnerabilities is returned and a full detailed analysis can be viewed online.
+Vigiles is a vulnerability management tool that provides build-time CVE Analysis of OpenWrt target images. It does this by collecting metadata about packages to be installed and uploading it to be compared against the Vigiles CVE database. A high-level overview of the detected vulnerabilities is returned and a full detailed analysis can be viewed online.
 
 To request a trial account, please contact us at sales@timesys.com
 
@@ -27,7 +24,7 @@ To generate a vulnerability report follow the below steps:
     git clone https://github.com/TimesysGit/vigiles-openwrt.git
     ```
 
-2. Download your LinuxLink Key File here and store it at the (recommended) path.
+2. Download your Vigiles API Key File here and store it at the (recommended) path.
 
     ```sh
     mkdir $HOME/timesys
@@ -62,11 +59,11 @@ To generate a vulnerability report follow the below steps:
     ```
     -- Vigiles CVE Report --
             View detailed online report at:
-              https://linuxlink.timesys.com/cves/reports/<Unique Report Identifier>
+              https://vigiles.lynx.com/cves/reports/<Unique Report Identifier>
     ```
 
     #### The CVE Manifest
-    The Vigiles CVE Scanner creates a manifest that it sends to the LinuxLink
+    The Vigiles CVE Scanner creates a manifest that it sends to the Vigiles
     Server describing your build configuration. This manifest is located in the
     ```{Vigiles output directory}``` provided while running Vigiles CVE Scanner (vigiles-openwrt.py) 
     (the same location as the text report it receives back).
@@ -251,9 +248,9 @@ VIGILES_DASHBOARD_CONFIG) will be displayed, from where it can be then be
 scanned by the Vigiles Service.
 
 
-### LinuxLink Credentials
+### Vigiles Credentials
 
-To specify an alternative location for the Timesys LinuxLink Key File, (default: 
+To specify an alternative location for the Vigiles API Key File, (default:
 ```$(HOME)/timesys/linuxlink_key```) it can be set with the Vigiles CVE Scanner argument
 **```-K / --keyfile```**.
 
@@ -272,7 +269,7 @@ To specify an alternative location for the Timesys LinuxLink Key File, (default:
 
 ### Vigiles Dashboard Configuration
 
-A custom LinuxLink Dashboard configuration can be set by specifying the path in
+A custom VIgiles Dashboard configuration can be set by specifying the path in
 the Vigiles CVE Scanner argument **```-C / --dashboard-config```**. If not provided, a default
 path will be used (```$(HOME)/timesys/dashboard_config```)
 
@@ -405,8 +402,8 @@ Maintenance
 ===========
 
 The Vigiles CVE Scanner and OpenWrt support are maintained by
-[The Timesys Security team](mailto:vigiles@timesys.com).
+[The Lynx Security team](mailto:vigiles@timesys.com).
 
 For Updates, Support and More Information, please see:
 
-[Vigiles Website](https://www.timesys.com/security/vigiles/)
+[Vigiles Website](https://www.lynx.com/solutions/vulnerability-mitigation-management)

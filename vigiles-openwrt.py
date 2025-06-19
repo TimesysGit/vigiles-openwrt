@@ -2,11 +2,11 @@
 
 ###############################################################################
 #
-# vigiles-openwrt.py -- Timesys Vigiles utility for image manifest generation
-# used for security monitoring and notification for OpenWrt.
+# vigiles-openwrt.py -- Vigiles utility for SBOM generation
+# used for vulnerability monitoring and notification for OpenWrt.
 #
 # Copyright (C) 2021 Timesys Corporation
-#
+# Copyright (C) 2025 Lynx Software Technologies, Inc. All rights reserved.
 #
 # This source is released under the MIT License.
 #
@@ -32,9 +32,9 @@ Arguments:
   -N MANIFEST_REPORT_NAME, --name MANIFEST_REPORT_NAME
                             Custom Manifest/Report name
   -K LLKEY, --keyfile LLKEY
-                            Path of LinuxLink credentials file
+                            Path of Vigiles API key file
   -C LLDASHBOARD, --dashboard-config LLDASHBOARD
-                            Path of LinuxLink Dashboard Config file
+                            Path of Vigiles Dashboard Config file
   -U, --upload-only         Upload the manifest only; do not generate CVE report.
   -k KCONFIG, --kernel-config KCONFIG
                             Custom Kernel Config to Use
@@ -120,13 +120,13 @@ def parse_args():
         "-K",
         "--keyfile",
         dest="llkey",
-        help="Location of LinuxLink credentials file"
+        help="Location of Vigiles API key file"
     )
     parser.add_argument(
         "-C",
         "--dashboard-config",
         dest="lldashboard",
-        help="Location of LinuxLink Dashboard Config file",
+        help="Location of Vigiles Dashboard Config file",
     )
     parser.add_argument(
         "-U",

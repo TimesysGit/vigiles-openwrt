@@ -3,7 +3,7 @@
 # lib/openwrt.py - Helpers for parsing OpenWrt .config variables
 #
 # Copyright (C) 2021 Timesys Corporation
-#
+# Copyright (C) 2025 Lynx Software Technologies, Inc. All rights reserved.
 #
 # This source is released under the MIT License.
 #

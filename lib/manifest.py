@@ -1,9 +1,9 @@
 ############################################################################
 #
-# lib/manifest.py - Helpers for building a Vigiles (OpenWrt) image manifest
+# lib/manifest.py - Helpers for building a Vigiles (OpenWrt) SBOM
 #
 # Copyright (C) 2021 Timesys Corporation
-#
+# Copyright (C) 2025 Lynx Software Technologies, Inc. All rights reserved.
 #
 # This source is released under the MIT License.
 #
