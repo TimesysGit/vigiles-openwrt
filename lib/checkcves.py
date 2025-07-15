@@ -57,31 +57,19 @@ def get_usage():
     )
 
 
-def print_demo_notice(bad_key=False):
-    print("\n-- Vigiles Demo Mode Notice --", file=sys.stderr)
+def print_bad_keyfile_notice(keyfile):
 
-    if bad_key:
-        print(
-            "\tNo Vigiles API keyfile was found or the contents were invalid.\n\n"
-            "\tPlease see this document for Vigiles API key information:\n"
-            "\t%s\n" % API_DOC,
-            file=sys.stderr,
-        )
-    else:
-        print("\tNo active subscription for this account.\n", file=sys.stderr)
+    print(f'Vigiles ERROR: API key doesn\'t exist at {keyfile} or is invalid.\n',
+        file=sys.stderr)
 
-    print(
-        "\tThe script will continue in demo mode, which will link you to "
-        "temporarily available online results only.\n"
-        "\tTo request a trial account, please contact us at sales@timesys.com\n",
-        file=sys.stderr,
-    )
-    print(
-        "\tFor more information on the vulnerability management service, "
-        "please visit:\n"
-        "\t%s\n" % INFO_PAGE,
-        file=sys.stderr,
-    )
+    print('\tPlease see this document for API key information:\n'
+            '\t%s\n\n'
+            '\tTo request a trial account, please get in touch with us at sales@timesys.com\n\n'
+            '\tFor more information on the vulnerability management service, '
+            'please visit:\n'
+            '\t%s\n' % (API_DOC, INFO_PAGE),
+            file=sys.stderr)
+    sys.exit(1)
 
 
 def handle_cmdline_args():
@@ -238,7 +226,7 @@ def print_report_header(result, f_out=None):
     print("\t%s" % report_time, file=f_out)
 
 
-def print_report_overview(result, is_demo=False, f_out=None):
+def print_report_overview(result, f_out=None):
     report_path = result.get("report_path", "")
     product_path = result.get("product_path", "")
 
@@ -253,13 +241,6 @@ def print_report_overview(result, is_demo=False, f_out=None):
         print(
             "\n\tThe manifest has been uploaded to the '%s' Product Workspace:\n\n"
             "\t  %s\n" % (product_name, product_url),
-            file=f_out,
-        )
-
-    if is_demo:
-        print(
-            "\t  NOTE: Running in Demo Mode will cause this URL to expire "
-            "after one day.",
             file=f_out,
         )
 
@@ -294,27 +275,8 @@ def print_summary(result, outfile=None):
             file=f_out,
         )
 
-    def show_demo_summary(f_out=outfile):
-        cves = result.get("cves", {})
-        print("\n-- Vigiles Vulnerability Overview --", file=f_out)
-        print(
-            "\n\tUnfixed: %d\n"
-            "\tUnfixed, Patch Available: %d\n"
-            "\tFixed: %d"
-            % (
-                cves.get("unfixed_count"),
-                cves.get("unapplied_count"),
-                cves.get("fixed_count"),
-            ),
-            file=f_out,
-        )
-
-    is_demo = result.get("demo", False)
-
     if "counts" in result:
         show_subscribed_summary(outfile)
-    elif is_demo:
-        show_demo_summary(outfile)
 
 
 def print_foootnotes(f_out=None):
@@ -369,8 +331,6 @@ def check_dashboard_config(dashboard_config, default_dc_used):
 
 
 def check_linuxlink_key(key, default_key_used):
-    err_prefix = "Invalid API key."
-    err_suffix = " Report will be generated in Demo mode instead."
     
     try:
         with open(key, "r") as f:
@@ -383,15 +343,15 @@ def check_linuxlink_key(key, default_key_used):
                         return
                 else:
                     return
-            err_msg = err_prefix + err_suffix
+            err_msg = "Invalid API key."
     except FileNotFoundError:
         if default_key_used:
             return
-        err_msg = "API key doesn't exists at %s." % key + err_suffix
+        err_msg = "API key doesn't exists at %s." % key
     except json.decoder.JSONDecodeError:
-        err_msg = err_prefix + err_suffix
+        err_msg = "Invalid API key."
     except Exception as e:
-        err_msg = "Unable to parse API key: %s." % e + err_suffix
+        err_msg = "Unable to parse API key: %s." % e
     raise InvalidLinuxlinkKey(err_msg)
 
 
@@ -460,7 +420,6 @@ def _get_credentials(vgls_chk):
             ll.VigilesURL = key_info.get('server_url', ll.VigilesURL)
 
         # Validate dashboard config
-        # Bypass Validation check for demo mode
         if email and key:
             check_dashboard_config(dashboard_config, default_dc_used)
 
@@ -468,8 +427,7 @@ def _get_credentials(vgls_chk):
             dashboard_tokens = ll.read_dashboard_config(dashboard_config)
     
     except InvalidLinuxlinkKey as e:
-        print('\nVigiles WARNING: %s\n' % e)
-        return vgls_creds
+        print_bad_keyfile_notice(key_file)
     except InvalidDashboardConfig as e:
         print('\nVigiles WARNING: %s\n' % e)
     except Exception as e:
@@ -500,13 +458,6 @@ def vigiles_request(vgls_chk):
     key = vgls_creds.get("key")
     is_enterprise = vgls_creds.get('is_enterprise')
     subfolder_name = vgls_creds.get('subfolder_name')
-    demo = False
-
-    # If there was no proper API keyfile, operate in demo mode.
-    if not email or not key:
-        demo = True
-        resource += "/demo"
-        print_demo_notice(bad_key=True)
 
     manifest_path = vgls_chk.get("manifest", "")
     report_path = vgls_chk.get("report", "")
@@ -623,21 +574,20 @@ def vigiles_request(vgls_chk):
     ]
 
     print_report_header(result, outfile)
-    print_report_overview(result, demo, outfile)
+    print_report_overview(result, outfile)
 
     print_summary(result, outfile=outfile)
 
-    if not demo:
-        print_cves(result, outfile=outfile)
-        if is_enterprise and ecosystems:
-            print_ecosystem_vulns(result, outfile=outfile)
+    print_cves(result, outfile=outfile)
+    if is_enterprise and ecosystems:
+        print_ecosystem_vulns(result, outfile=outfile)
 
     if not upload_only:
         print_whitelist(whitelist, outfile=outfile)
         print_foootnotes(f_out=outfile)
 
     if outfile is not None:
-        print_report_overview(result, demo)
+        print_report_overview(result)
         print_summary(result)
         print("\n\tLocal summary written to:\n\t  %s" % os.path.relpath(outfile.name))
         outfile.close()

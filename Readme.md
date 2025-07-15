@@ -9,7 +9,7 @@ What is Vigiles?
 
 Vigiles is a vulnerability management tool that provides build-time CVE Analysis of OpenWrt target images. It does this by collecting metadata about packages to be installed and uploading it to be compared against the Vigiles CVE database. A high-level overview of the detected vulnerabilities is returned and a full detailed analysis can be viewed online.
 
-To request a trial account, please contact us at sales@timesys.com
+To request a trial account, please get in touch with us at sales@timesys.com
 
 
 Using Vigiles CVE Check
