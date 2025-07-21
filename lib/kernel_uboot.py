@@ -490,7 +490,11 @@ def get_kernel_info(vgls):
 def get_uboot_info(vgls):
     uboot_dict = {}
 
-    udir = _get_uboot_dir(vgls)
+    udir = vgls.get("udir")
+    custom_udir = True if udir else False
+    if not custom_udir:
+        udir = _get_uboot_dir(vgls)
+    dbg("U-boot Source directory: %s" % udir)
 
     if not udir:
         warn("U-Boot Config: U-Boot Build directory not defined.")
@@ -508,7 +512,7 @@ def get_uboot_info(vgls):
     dbg("U-Boot Version: %s" % ver)
     uboot_dict["makefile"] = os.path.join(udir, "Makefile")
     uboot_dict["name"] = uboot_dict["cve_product"] = uboot_dict["rawname"] = "u-boot"
-    uboot_dict["download_location"] = _get_uboot_download_location(vgls)
+    uboot_dict["download_location"] = _get_uboot_download_location(vgls)  if not custom_udir else UNKNOWN
     uboot_dict["download_protocol"] = UNKNOWN
     uboot_dict["package_supplier"] = PACKAGE_SUPPLIER
     uboot_dict["patches"], uboot_dict["patched_cves"] = _get_uboot_patches(vgls)

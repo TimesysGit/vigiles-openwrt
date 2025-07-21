@@ -203,6 +203,12 @@ def parse_args():
         default='',
         help='Location of custom kernel source directory',
     )
+    parser.add_argument(
+        '--uboot-source',
+        dest='udir',
+        default='',
+        help='Location of custom uboot source directory',
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -224,7 +230,8 @@ def parse_args():
         "do_check": args.do_check,
         "ecosystems": args.ecosystems.strip(),
         "subscribe": args.subscribe.strip(),
-        "kdir": os.path.abspath(args.kdir.strip()) if args.kdir else None
+        "kdir": os.path.abspath(args.kdir.strip()) if args.kdir else None,
+        "udir": os.path.abspath(args.udir.strip()) if args.udir else None,
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -237,6 +244,14 @@ def parse_args():
 
     if vgls["kdir"] and not os.path.exists(os.path.join(vgls["kdir"], "Makefile")):
         err("Invalid Kernel source directory: Makefile not found")
+        sys.exit(1)
+
+    if vgls["udir"] and not os.path.exists(vgls["udir"]):
+        err("Invalid path for U-Boot source directory")
+        sys.exit(1)
+
+    if vgls["udir"] and not os.path.exists(os.path.join(vgls["udir"], "Makefile")):
+        err("Invalid U-Boot source directory: Makefile not found")
         sys.exit(1)
 
     if not vgls.get("odir", None):

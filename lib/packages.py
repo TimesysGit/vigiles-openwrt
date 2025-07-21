@@ -621,6 +621,8 @@ def add_dependencies(pkg, pkg_dict, bdir):
                         pkg_dict[dep]["comment"] = dependency_only_comment["runtime"]
 
     makefile = AVAILABLE_PKGS.get(pkg, {}).get("makefile", "")
+    if not makefile and (pkg in ["linux", "u-boot"]):
+        makefile = pkg_dict.get(pkg, {}).get("makefile", "")
     if not makefile:
         alias = ALIAS_PKG_MAP.get(pkg)
         makefile = AVAILABLE_PKGS.get(alias, {}).get("makefile", "")

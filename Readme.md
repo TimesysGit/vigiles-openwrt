@@ -386,6 +386,15 @@ This option allows users to specify a custom kernel source directory. If a path 
 > ```--kernel-source path/to/custom/kernel/source```
 
 
+### Specifying Custom U-boot source
+
+This option allows users to specify a custom U-Boot source directory. If a path is provided using this option, the script will collect metadata from the specified U-Boot source. If left blank, the script will fall back to using the default U-Boot source path.
+
+>Example to set Custom U-boot source path:
+>
+> ```--uboot-source path/to/custom/u-boot/source```
+
+
 ### Advanced Options
 
 For development purposes, some "Expert" options are available.
