@@ -330,7 +330,7 @@ def check_dashboard_config(dashboard_config, default_dc_used):
     raise InvalidDashboardConfig(err_msg)
 
 
-def check_linuxlink_key(key, default_key_used):
+def check_linuxlink_key(key):
     
     try:
         with open(key, "r") as f:
@@ -345,8 +345,6 @@ def check_linuxlink_key(key, default_key_used):
                     return
             err_msg = "Invalid API key."
     except FileNotFoundError:
-        if default_key_used:
-            return
         err_msg = "API key doesn't exists at %s." % key
     except json.decoder.JSONDecodeError:
         err_msg = "Invalid API key."
@@ -371,7 +369,6 @@ def _get_credentials(vgls_chk):
     sf_param = vgls_chk.get('subfolder_name', '')
     sf_default = ''
 
-    default_key_used = False
     default_dc_used = False
     if kf_env:
         print("Vigiles: Using API Key from Environment: %s" % kf_env)
@@ -382,7 +379,6 @@ def _get_credentials(vgls_chk):
     else:
         print("Vigiles: Trying API Key Default: %s" % kf_default)
         key_file = kf_default
-        default_key_used = True
 
     if dc_env:
         print("Vigiles: Using Dashboard Config from Environment: %s" % dc_env)
@@ -411,7 +407,7 @@ def _get_credentials(vgls_chk):
     dashboard_tokens = {}
 
     try:
-        check_linuxlink_key(key_file, default_key_used)
+        check_linuxlink_key(key_file)
         key_info = ll.read_keyfile(key_file)
         email = key_info.get('email', None)
         key = key_info.get('key', key_info.get('organization_key', None))
