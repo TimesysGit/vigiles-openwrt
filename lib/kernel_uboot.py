@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 from .utils import mkdirhier
 from .utils import dbg, info, warn, err, UNKNOWN, UNSET
 from .utils import get_makefile_variables
-from .packages import _patched_cves, PACKAGE_SUPPLIER, add_dependencies
+from .packages import _patched_cves, PACKAGE_SUPPLIER, add_dependencies, AVAILABLE_PKGS
 
 
 def _get_toolchain_dir_name(vgls):
@@ -488,6 +488,8 @@ def get_kernel_info(vgls):
 
 
 def get_uboot_info(vgls):
+    board = vgls["config"].get("config-target-board", "")
+    u_boot_target  = ("uboot-%s" % board) if board else "u-boot"
     uboot_dict = {}
 
     udir = vgls.get("udir")
@@ -525,6 +527,15 @@ def get_uboot_info(vgls):
     if uconfig_out != "none":
         dbg("U-Boot Config: Wrote %d options to %s" % (len(config_opts), uconfig_out))
     vgls["uconfig"] = uconfig_out
+
+    # Add lifecycle info if available
+    if u_boot_target in AVAILABLE_PKGS:
+        info = AVAILABLE_PKGS.get(u_boot_target, {})
+        for key in ("release_date", "end_of_life", "level_of_support"):
+            if key in info:
+                uboot_dict[key] = info[key]
+
     vgls["packages"]["u-boot"] = uboot_dict
     add_dependencies(uboot_dict["name"],vgls["packages"], vgls["bdir"])
+
     return vgls

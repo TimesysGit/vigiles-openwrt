@@ -416,6 +416,27 @@ Openwrt includes packages/config scripts lacking version information (Ex. base-f
 In the generated SBOM for such packages version is set to the Openwrt distro version.
 
 
+## Package Lifecycle Information
+
+Some users may want to set package lifecycle information in the package makefile and have it included in the SBOM. This can be done using the following custom makefile variables in the package’s Makefile:
+
+```
+PKG_RELEASE_DATE:=2025-01-15
+PKG_END_OF_LIFE:=2027-01-15
+PKG_LEVEL_OF_SUPPORT:=Actively maintained
+```
+
+These values will be collected and included in the SBOM for the corresponding packages.
+
+You can also provide lifecycle information for additional packages using a CSV file referenced in ```Including Additional Packages```. Example CSV format:
+```
+product,version,license,release_date,end_of_life,level_of_support
+avahi,0.6,MIT,2025-09-01,2026-01-01,Actively maintained
+```
+
+The valid values for both ```PKG_LEVEL_OF_SUPPORT``` and the CSV column level_of_support are: ```Actively maintained```, ```No longer maintained```, ```Not available```, ```Abandoned```.
+
+
 Maintenance
 ===========
 

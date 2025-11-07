@@ -16,6 +16,7 @@ from collections import defaultdict
 from .openwrt import get_openwrt_license
 from .packages import PACKAGE_SUPPLIER
 from .utils import dbg, info, warn, sanitize_openwrt_version, UNKNOWN
+from .utils import get_valid_los, validate_date
 
 
 def _get_addl_packages(extra_csv):
@@ -29,6 +30,7 @@ def _get_addl_packages(extra_csv):
     additional = {
         "additional_licenses": defaultdict(str),
         "additional_packages": defaultdict(dict),
+        'additional_packages_info': defaultdict(dict)
     }
 
     extra_rows = []
@@ -53,7 +55,12 @@ def _get_addl_packages(extra_csv):
                     license = row[2].strip()
                 else:
                     license = UNKNOWN
-                extra_rows.append([pkg, ver, license])
+                release_date = row[3].strip() if len(row) > 3 else ''
+                end_of_life = row[4].strip() if len(row) > 4 else ''
+                level_of_support = row[5].strip() if len(row) > 5 else ''
+
+                extra_rows.append([pkg, ver, license, release_date, end_of_life, level_of_support])
+
     except Exception as e:
         warn("Additional Packages: %s" % e)
         return {}
@@ -61,7 +68,7 @@ def _get_addl_packages(extra_csv):
     if not extra_rows:
         return {}
 
-    # Check for a CSV header of e.g. "package,version,license" and skip it
+    # Skip CSV header if present
     header = extra_rows[0]
     if header[0].lower() == "product":
         extra_rows = extra_rows[1:]
@@ -70,6 +77,10 @@ def _get_addl_packages(extra_csv):
         pkg = row[0].replace(" ", "-")
         ver = row[1].replace(" ", ".")
         license = row[2]
+        release_date = row[3]
+        end_of_life = row[4]
+        level_of_support = row[5]
+
         license_key = pkg + ver
 
         dbg(
@@ -82,6 +93,24 @@ def _get_addl_packages(extra_csv):
 
         additional["additional_packages"][pkg] = sorted(list(pkg_vers))
         additional["additional_licenses"][license_key] = license
+
+        # Update lifecycle info dictionary if any value exists
+        lifecycle = {}
+        if release_date and validate_date(release_date, pkg, "release_date"):
+            lifecycle['release_date'] = release_date
+        if end_of_life and validate_date(end_of_life, pkg, "end_of_life"):
+            lifecycle['end_of_life'] = end_of_life
+        if level_of_support:
+            los_value = get_valid_los(level_of_support, pkg)
+            if los_value:
+                lifecycle['level_of_support'] = los_value
+
+        if lifecycle:
+            key = pkg + ver if ver else pkg
+            additional['additional_packages_info'][key] = lifecycle
+
+    if not additional['additional_packages_info']:
+        additional.pop('additional_packages_info',None)
 
     dbg("Adding Package Info: %s" % json.dumps(additional, indent=4, sort_keys=True))
     info("Adding Packages: %s" % list(additional["additional_licenses"].keys()))

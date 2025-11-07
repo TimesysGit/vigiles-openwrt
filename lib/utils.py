@@ -156,3 +156,30 @@ def get_makefile_variables(makefile_dir, env, mk_varlist, mk_extra=None):
         raise Exception(err)
     op = out.decode().strip().splitlines()
     return op
+
+
+def get_valid_los(level_of_support, pkg):
+    valid = ["not available", "actively maintained", "no longer maintained", "abandoned"]
+
+    if level_of_support.lower() in valid:
+        return level_of_support.capitalize()
+    else:
+        warn(
+            "Invalid level_of_support '%s' for %s. Refer to the README for valid values."
+            % (level_of_support, pkg)
+        )
+        return ""
+
+
+def validate_date(date_str, pkg, date_type, fmt="%Y-%m-%d"):
+    from datetime import datetime
+
+    try:
+        datetime.strptime(date_str, fmt)
+        return True
+    except ValueError:
+        warn(
+            "Invalid %s '%s' for %s. Provide valid date in YYYY-MM-DD format."
+            % (date_type, date_str, pkg)
+        )
+        return False

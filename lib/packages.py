@@ -17,7 +17,7 @@ import re
 from collections import defaultdict
 from copy import deepcopy
 
-from .utils import write_intm_json
+from .utils import write_intm_json, get_valid_los, validate_date
 from .utils import kconfig_to_py
 from .utils import dbg, info, warn, UNKNOWN, UNSET
 from .utils import get_makefile_variables
@@ -152,6 +152,26 @@ def _get_download_location(pkgs, bdir):
     return pkgs
 
 
+def _get_lifecycle_info(pkg, mk_info):
+    lifecycle = {}
+
+    release_date = mk_info.get("PKG_RELEASE_DATE", "").strip()
+    if release_date and validate_date(release_date, pkg, "release_date"):
+        lifecycle["release_date"] = release_date
+
+    end_of_life = mk_info.get("PKG_END_OF_LIFE", "").strip()
+    if end_of_life and validate_date(end_of_life, pkg, "end_of_life"):
+        lifecycle["end_of_life"] = end_of_life
+
+    level_of_support = mk_info.get("PKG_LEVEL_OF_SUPPORT", "").strip()
+    if level_of_support:
+        los_value = get_valid_los(level_of_support, pkg)
+        if los_value:
+            lifecycle['level_of_support'] = los_value
+
+    return lifecycle
+
+
 def _get_pkg_make_info(pkgs, bdir):
     alias_pkgs = defaultdict()
     for pkg in pkgs:
@@ -182,6 +202,7 @@ def _get_pkg_make_info(pkgs, bdir):
                     )
                     l_split = l.split(":")
                     mk_info[l_split[0].strip().upper()] = l_split[1].strip()
+
         pkgs[pkg]["name"] = pkg
         pkgs[pkg]["rawname"] = pkgs[pkg].get("name")
         pkgs[pkg]["version"] = _get_pkg_version(mk_info, bdir, makefile_dir)
@@ -191,6 +212,12 @@ def _get_pkg_make_info(pkgs, bdir):
         pkgs[pkg]["cve_version"] = _get_pkg_cve_version(mk_info, bdir, makefile_dir)
         pkgs[pkg]["package_supplier"] = PACKAGE_SUPPLIER
         pkgs[pkg]["download_protocol"] = _get_pkg_dwld_proto(mk_info)
+
+        # Add lifecycle info if available
+        lifecycle_info = _get_lifecycle_info(pkg, mk_info)
+        if lifecycle_info:
+            for key, value in lifecycle_info.items():
+                pkgs[pkg][key] = value
 
         for subpkg in subpkgs:
             if subpkg != pkgs[pkg].get("name"):
@@ -204,6 +231,12 @@ def _get_pkg_make_info(pkgs, bdir):
                 alias_pkgs[subpkg]["cve_version"] = pkgs[pkg].get("cve_version")
                 alias_pkgs[subpkg]["package_supplier"] = PACKAGE_SUPPLIER
                 alias_pkgs[subpkg]["download_protocol"] = pkgs[pkg].get("download_protocol")
+
+                # Add lifecycle info if available in main package
+                for key in ("release_date", "end_of_life", "level_of_support"):
+                    if key in pkgs[pkg]:
+                        alias_pkgs[subpkg][key] = pkgs[pkg][key]
+
             ALIAS_PKG_MAP[subpkg] = pkg
     pkgs.update(alias_pkgs)
     return pkgs
