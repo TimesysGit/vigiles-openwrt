@@ -252,12 +252,12 @@ def _remove_makefile_from_pkg_data(pkg_dict):
 def _patched_cves(src_patches, vgls):
     patched_dict = dict()
 
-    cve_match = re.compile("CVE\-\d{4}\-\d+")
+    cve_match = re.compile(r"CVE-\d{4}-\d+")
 
     # Matches last CVE-1234-211432 in the file name, also if written
     # with small letters. Not supporting multiple CVE id's in a single
     # file name.
-    cve_file_name_match = re.compile(".*([Cc][Vv][Ee]\-\d{4}\-\d+)")
+    cve_file_name_match = re.compile(r".*([Cc][Vv][Ee]-\d{4}-\d+)")
 
     for patch_path in src_patches:
         found_cves = list()
