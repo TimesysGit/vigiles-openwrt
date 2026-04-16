@@ -66,6 +66,8 @@ from lib.openwrt import get_config_options
 from lib.manifest import write_manifest, VIGILES_OUTPUT_DIR
 import lib.packages as packages
 from lib.checkcves import vigiles_request
+from lib.clitasks import validate_download_options, download_sbom
+from lib.constants import DOWNLOAD_SBOM_FORMATS
 from lib.kernel_uboot import get_kernel_info, get_uboot_info
 
 from lib.utils import set_debug
@@ -209,7 +211,34 @@ def parse_args():
         default='',
         help='Location of custom uboot source directory',
     )
+    parser.add_argument(
+        '--download-sbom',
+        help='Download Converted SBOM (CycloneDX/SPDX)',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--vigiles-bin',
+        help='Path to vigiles CLI binary',
+    )
+    parser.add_argument(
+        '--download-sbom-format',
+        help='SBOM format to download',
+        type=str.lower,
+        choices=DOWNLOAD_SBOM_FORMATS,
+    )
+    parser.add_argument(
+        '--download-sbom-file-type',
+        help='SBOM file type to download',
+        type=str.lower,
+    )
+    parser.add_argument(
+        '--download-sbom-version',
+        help='SBOM version to download',
+    )
     args = parser.parse_args()
+
+    # Validates download-sbom and related args, no-op unless download is requested
+    validate_download_options(parser, args)
 
     set_debug(args.debug)
 
@@ -232,6 +261,11 @@ def parse_args():
         "subscribe": args.subscribe.strip(),
         "kdir": os.path.abspath(args.kdir.strip()) if args.kdir else None,
         "udir": os.path.abspath(args.udir.strip()) if args.udir else None,
+        "download_sbom": args.download_sbom,
+        "vigiles_bin": os.path.abspath(args.vigiles_bin.strip()) if args.vigiles_bin else "",
+        "download_sbom_format": args.download_sbom_format.strip() if args.download_sbom_format else "",
+        "download_sbom_version": args.download_sbom_version.strip() if args.download_sbom_version else "",
+        "download_sbom_file_type": args.download_sbom_file_type.strip() if args.download_sbom_file_type else "",
     }
 
     if not os.path.exists(vgls.get("bdir")):
@@ -313,7 +347,7 @@ def run_check(vgls):
         "ecosystems": vgls.get("ecosystems", ""),
         "subscribe": vgls.get("subscribe")
     }
-    vigiles_request(vgls_chk)
+    return vigiles_request(vgls_chk)
 
 
 def __main__():
@@ -321,7 +355,9 @@ def __main__():
     collect_metadata(vgls)
     write_manifest(vgls)
     if vgls["do_check"]:
-        run_check(vgls)
+        result = run_check(vgls)
+        if vgls.get("download_sbom"):
+            download_sbom(vgls, result)
 
 
 __main__()

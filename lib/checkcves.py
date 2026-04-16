@@ -588,6 +588,8 @@ def vigiles_request(vgls_chk):
         print("\n\tLocal summary written to:\n\t  %s" % os.path.relpath(outfile.name))
         outfile.close()
 
+    return result
+
 
 if __name__ == "__main__":
     args = handle_cmdline_args()

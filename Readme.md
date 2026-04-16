@@ -395,28 +395,32 @@ This option allows users to specify a custom U-Boot source directory. If a path 
 > ```--uboot-source path/to/custom/u-boot/source```
 
 
-### Advanced Options
+### Downloading Converted SBOMs
 
-For development purposes, some "Expert" options are available.
-These allow for debugging of the metadata that is collected.
-These features are not supported and no documentation is provided for them.
+A converted SBOM in standard CycloneDX or SPDX formats can be downloaded after the upload process completes. The configured vigiles CLI binary is used to download the requested converted SBOM into the Vigiles output directory.
 
-**Write Intermediate JSON Files of Collected Metadata**: ```-I, --write-intermediate```
+The [vigiles-cli](https://github.com/TimesysGit/vigiles-cli) is required to be installed, and the path to its binary should be provided.
 
-**Enable Debug messages**: ```-D, --enable-debug```
+**Note:** Using the latest version of vigiles-cli is recommended. However, if you need to use an older version, ensure it is v1.0.3 or higher.
 
-**Generate a SBOM without performing a vulnerability scan**: ```-M, --metadata-only```
+Example usage:
+
+> ```--download-sbom --vigiles-bin /path/to/vigiles/cli/binary --download-sbom-format cyclonedx --download-sbom-file-type json --download-sbom-version 1.6```
+
+The vigiles CLI binary path can be provided using `--vigiles-bin` or the environment variable `VIGILES_BIN_PATH`. If both are set, the environment variable takes priority.
+
+Required: ```--download-sbom```, ```--download-sbom-format```, and the vigiles CLI path via ```--vigiles-bin``` or ```VIGILES_BIN_PATH```.
+
+Supported options for each argument are:
+
+* `--download-sbom-format`: `cyclonedx`, `spdx`, and `spdx-lite`
+* `--download-sbom-file-type` for `cyclonedx`: `json` (default) and `xml`
+* `--download-sbom-file-type` for `spdx` and `spdx-lite`: `json` (default), `xml`, `yaml`, `tag`, `xlsx`, `xls`, and `rdfxml`
+* `--download-sbom-version` for `cyclonedx`: `1.7`, `1.6` (default), `1.5`, `1.4`, `1.3`, `1.2`, and `1.1`
+* `--download-sbom-version` for `spdx` and `spdx-lite`: `2.3` (default) and `2.2`
 
 
-### Other Notes
-
-#### Package Version Information in Generated SBOM
-
-Openwrt includes packages/config scripts lacking version information (Ex. base-files, urandom-seeds, etc.). 
-In the generated SBOM for such packages version is set to the Openwrt distro version.
-
-
-## Package Lifecycle Information
+### Package Lifecycle Information
 
 Some users may want to set package lifecycle information in the package makefile and have it included in the SBOM. This can be done using the following custom makefile variables in the package’s Makefile:
 
@@ -437,6 +441,27 @@ avahi,0.6,MIT,2025-09-01,2026-01-01,Actively maintained
 The valid values for both ```PKG_LEVEL_OF_SUPPORT``` and the CSV column level_of_support are: ```Actively maintained```, ```No longer maintained```, ```Not available```, ```Abandoned```.
 
 
+### Advanced Options
+
+For development purposes, some "Expert" options are available.
+These allow for debugging of the metadata that is collected.
+These features are not supported and no documentation is provided for them.
+
+**Write Intermediate JSON Files of Collected Metadata**: ```-I, --write-intermediate```
+
+**Enable Debug messages**: ```-D, --enable-debug```
+
+**Generate a SBOM without performing a vulnerability scan**: ```-M, --metadata-only```
+
+
+### Other Notes
+
+#### Package Version Information in Generated SBOM
+
+Openwrt includes packages/config scripts lacking version information (Ex. base-files, urandom-seeds, etc.).
+In the generated SBOM for such packages version is set to the Openwrt distro version.
+
+
 Maintenance
 ===========
 
@@ -444,5 +469,4 @@ The Vigiles CVE Scanner and OpenWrt support are maintained by
 [The Lynx Security team](mailto:vigiles@timesys.com).
 
 For Updates, Support and More Information, please see:
-
 [Vigiles Website](https://www.lynx.com/solutions/vulnerability-mitigation-management)

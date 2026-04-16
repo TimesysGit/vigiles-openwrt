@@ -102,6 +102,7 @@ def _report_name(vgls, manifest_dict):
 
 def write_manifest(vgls):
     final = _init_manifest(vgls)
+    vgls["manifest_name"] = final["manifest_name"]
 
     amend_manifest(vgls, final)
 
