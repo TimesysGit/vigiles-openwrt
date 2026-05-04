@@ -89,14 +89,25 @@ def _get_pkg_version(mk_info, bdir, makefile_dir):
     return version
 
 
-def _get_pkg_license(mk_info):
-    license = UNKNOWN
-    if "SPDX-LICENSE-IDENTIFIER" in mk_info.keys():
-        license = mk_info["SPDX-LICENSE-IDENTIFIER"]
-    elif "PKG_LICENSE" in mk_info.keys():
-        license = mk_info["PKG_LICENSE"]
-    license = ",".join(license.split(" "))
-    return license
+def _normalize_license(license):
+    """Normalize parsed license strings while preserving SPDX operators"""
+    SPDX_EXPRESSION_OPERATORS = {"OR", "AND", "WITH"}
+    license_parts = license.split()
+    if any(token in SPDX_EXPRESSION_OPERATORS for token in license_parts):
+        return " ".join(license_parts)
+    return ",".join(license_parts)
+
+
+def _get_pkg_license(primary=None, fallback=None):
+    """Return the first available package license from primary or fallback metadata"""
+    for info in (primary, fallback):
+        if not info:
+            continue
+        for key in ("SPDX-LICENSE-IDENTIFIER", "PKG_LICENSE", "LICENSE"):
+            license = info.get(key)
+            if license:
+                return _normalize_license(license.strip())
+    return UNKNOWN
 
 
 def _get_pkg_cpe_id(mk_info):
@@ -121,14 +132,15 @@ def _get_pkg_dwld_proto(mk_info):
     return source_proto
 
 
-def _get_pkg_cve_version(mk_info, bdir, makefile_dir):
-    if "PKG_CVE_VERSION" in mk_info.keys():
-        cve_version = mk_info["PKG_CVE_VERSION"]
-    elif "PKG_RELEASE_VERSION" in mk_info.keys() and "$" not in mk_info["PKG_RELEASE_VERSION"]:
-        cve_version = mk_info["PKG_RELEASE_VERSION"]
-    else:
-        cve_version = _get_pkg_version(mk_info, bdir, makefile_dir)
-    return cve_version
+def _get_pkg_cve_version(mk_info):
+    """Return an explicit CVE version if defined"""
+    if "PKG_CVE_VERSION" in mk_info:
+        return mk_info["PKG_CVE_VERSION"]
+
+    if "PKG_RELEASE_VERSION" in mk_info and "$" not in mk_info["PKG_RELEASE_VERSION"]:
+        return mk_info["PKG_RELEASE_VERSION"]
+
+    return None
 
 
 def _get_download_location(pkgs, bdir):
@@ -174,42 +186,64 @@ def _get_lifecycle_info(pkg, mk_info):
 
 def _get_pkg_make_info(pkgs, bdir):
     alias_pkgs = defaultdict()
+
     for pkg in pkgs:
         makefile = pkgs[pkg]["makefile"]
         makefile_dir = os.path.dirname(makefile)
-        subpkgs = []
+        mk_info = {}
+        subpkgs_info = {}
+        curr_subpkg = None
+
         with open(makefile) as mk:
-            mk_info = {}
-            for l in mk.readlines():
-                if l.startswith("define Package") and len(l.strip().split("/")) == 2:
-                    sub_pkg = l.split("/")[-1].strip()
-                    if "$(PKG_NAME)" in sub_pkg:
-                        sub_pkg = sub_pkg.replace("$(PKG_NAME)", pkg)
-                    subpkgs.append(sub_pkg)
+            for l in mk:
+                line = l.strip()
+
+                if line.startswith("define Package/"):
+                    parts = line.split("/")
+                    if len(parts) >= 2:
+                        curr_subpkg = parts[1].strip()
+                        if "$(PKG_NAME)" in curr_subpkg:
+                            curr_subpkg = curr_subpkg.replace("$(PKG_NAME)", pkg)
+                        if curr_subpkg not in subpkgs_info:
+                            subpkgs_info[curr_subpkg] = {}
                     continue
-                if ":=" in l:
-                    k, v = l.strip().split(":=")[:2]
-                    mk_info[k] = v
-                elif "=" in l and "+=" not in l:
-                    k, v = l.strip().split("=")[:2]
-                    mk_info[k] = v
-                elif "SPDX-License-Identifier" in l:
-                    l = (
-                        l.replace("#", "")
+
+                if line == "endef":
+                    curr_subpkg = None
+                    continue
+
+                if "SPDX-License-Identifier" in line:
+                    cleaned = (
+                        line.replace("#", "")
                         .replace("//*", "")
                         .replace("////", "")
                         .strip()
                     )
-                    l_split = l.split(":")
-                    mk_info[l_split[0].strip().upper()] = l_split[1].strip()
+                    parts = cleaned.split(":")
+                    if len(parts) >= 2:
+                        mk_info[parts[0].strip().upper()] = parts[1].strip()
+                    continue
+
+                if ":=" in line:
+                    key, value = line.split(":=", 1)
+                elif "=" in line and "+=" not in line:
+                    key, value = line.split("=", 1)
+                else:
+                    continue
+
+                key, value = key.strip(), value.strip()
+                if curr_subpkg:
+                    subpkgs_info[curr_subpkg][key] = value
+                else:
+                    mk_info[key] = value
 
         pkgs[pkg]["name"] = pkg
         pkgs[pkg]["rawname"] = pkgs[pkg].get("name")
         pkgs[pkg]["version"] = _get_pkg_version(mk_info, bdir, makefile_dir)
-        pkgs[pkg]["license"] = _get_pkg_license(mk_info)
+        pkgs[pkg]["license"] = _get_pkg_license(mk_info, subpkgs_info.get(pkg))
         pkgs[pkg]["cpe_id"] = _get_pkg_cpe_id(mk_info)
         pkgs[pkg]["cve_product"] = _get_pkg_cve_product(pkg, mk_info)
-        pkgs[pkg]["cve_version"] = _get_pkg_cve_version(mk_info, bdir, makefile_dir)
+        pkgs[pkg]["cve_version"] = _get_pkg_cve_version(mk_info) or pkgs[pkg].get("version")
         pkgs[pkg]["package_supplier"] = PACKAGE_SUPPLIER
         pkgs[pkg]["download_protocol"] = _get_pkg_dwld_proto(mk_info)
 
@@ -219,13 +253,14 @@ def _get_pkg_make_info(pkgs, bdir):
             for key, value in lifecycle_info.items():
                 pkgs[pkg][key] = value
 
-        for subpkg in subpkgs:
+        for subpkg in subpkgs_info:
             if subpkg != pkgs[pkg].get("name"):
                 alias_pkgs[subpkg] = {}
                 alias_pkgs[subpkg]["rawname"] = subpkg
                 alias_pkgs[subpkg]["name"] = pkgs[pkg].get("name")
+                alias_pkgs[subpkg]["makefile"] = makefile
                 alias_pkgs[subpkg]["version"] = pkgs[pkg].get("version")
-                alias_pkgs[subpkg]["license"] = pkgs[pkg].get("license")
+                alias_pkgs[subpkg]["license"] = _get_pkg_license(subpkgs_info.get(subpkg), mk_info)
                 alias_pkgs[subpkg]["cpe_id"] = pkgs[pkg].get("cpe_id")
                 alias_pkgs[subpkg]["cve_product"] = pkgs[pkg].get("cve_product")
                 alias_pkgs[subpkg]["cve_version"] = pkgs[pkg].get("cve_version")
@@ -369,7 +404,7 @@ def get_package_info(vgls):
         pkgs = defaultdict()
         for pkg in pkg_list:
             if pkg in pkg_rawname_list:
-                pkgs[pkg] = deepcopy(full_pkg_list[full_pkg_list[pkg].get("name")])
+                pkgs[pkg] = deepcopy(full_pkg_list[pkg])
         return pkgs
 
     # List of packages selected in .config
@@ -680,12 +715,12 @@ def add_dependencies(pkg, pkg_dict, bdir):
         "build": build_deps,
         "runtime": runtime_deps
     }})
-    
+
 
 def get_toolchain_pkgs(vgls):
     toolchain_pkgs_info = _get_pkg_make_info(TOOLCHAIN_PKGS, vgls["bdir"])
     AVAILABLE_PKGS.update(deepcopy(toolchain_pkgs_info))
-     
+
 
 def get_package_dependencies(vgls):
     get_toolchain_pkgs(vgls)

@@ -153,7 +153,7 @@ def get_makefile_variables(makefile_dir, env, mk_varlist, mk_extra=None):
     )
     out, err = mk_vals.communicate()
     if err:
-        raise Exception(err)
+        raise Exception("; ".join(err.decode(errors="replace").splitlines()))
     op = out.decode().strip().splitlines()
     return op
 
