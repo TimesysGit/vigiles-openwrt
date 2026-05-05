@@ -228,21 +228,26 @@ def print_report_header(result, f_out=None):
 
 def print_report_overview(result, f_out=None):
     report_path = result.get("report_path", "")
-    product_path = result.get("product_path", "")
 
     if report_path:
         report_url = urllib.parse.urljoin(ll.VigilesURL, report_path)
         print("\n-- Vigiles Vulnerability Report --", file=f_out)
         print("\n\tView detailed online report at:\n" "\t  %s" % report_url, file=f_out)
-    elif product_path:
-        product_url = urllib.parse.urljoin(ll.VigilesURL, product_path)
-        product_name = result.get("product_name", "Default")
-        print("\n-- Vigiles Dashboard --", file=f_out)
-        print(
-            "\n\tThe manifest has been uploaded to the '%s' Product Workspace:\n\n"
-            "\t  %s\n" % (product_name, product_url),
-            file=f_out,
-        )
+
+
+def print_upload_overview(result, f_out=None):
+    url_parts = [ll.VigilesURL.strip("/"), "groups"]
+    for key in ("group_token", "folder_token"):
+        token = result.get(key)
+        if token:
+            url_parts.append(token)
+    sbom_url = "/".join(url_parts)
+    print("\n-- Vigiles Dashboard --", file=f_out)
+    print(
+        "\n\tSBOM uploaded successfully. To view or scan it for a vulnerability report, visit:\n"
+        "\t  %s\n" % sbom_url,
+        file=f_out,
+    )
 
 
 def print_summary(result, outfile=None):
@@ -279,7 +284,7 @@ def print_summary(result, outfile=None):
         show_subscribed_summary(outfile)
 
 
-def print_foootnotes(f_out=None):
+def print_footnotes(f_out=None):
     print("\n-- Vigiles Footnotes --", file=f_out)
     print(
         '\t* "CPU" Vulnerabilities are filed against the hardware.\n'
@@ -553,7 +558,10 @@ def vigiles_request(vgls_chk):
         else:
             print('Vigiles WARNING: The subscribe option is currently only supported with the Enterprise edition')
 
-    print("Vigiles: Requesting image analysis ...\n", file=sys.stderr)
+    if upload_only:
+        print("Vigiles: Uploading SBOM ...\n", file=sys.stderr)
+    else:
+        print("Vigiles: Requesting image analysis ...\n", file=sys.stderr)
 
     result = ll.api_post(email, key, resource, request)
     if not result:
@@ -569,6 +577,13 @@ def vigiles_request(vgls_chk):
         if not any(bogon == item for bogon in bogus_whitelist.split())
     ]
 
+    if upload_only:
+        print_upload_overview(result, outfile)
+        if outfile is not None:
+            print_upload_overview(result)
+            outfile.close()
+        return result
+
     print_report_header(result, outfile)
     print_report_overview(result, outfile)
 
@@ -578,9 +593,8 @@ def vigiles_request(vgls_chk):
     if is_enterprise and ecosystems:
         print_ecosystem_vulns(result, outfile=outfile)
 
-    if not upload_only:
-        print_whitelist(whitelist, outfile=outfile)
-        print_foootnotes(f_out=outfile)
+    print_whitelist(whitelist, outfile=outfile)
+    print_footnotes(f_out=outfile)
 
     if outfile is not None:
         print_report_overview(result)
@@ -601,6 +615,6 @@ if __name__ == "__main__":
         "uconfig": args.uboot_config,
         'subfolder_name': args.subfolder_name,
         'ecosystems': args.ecosystems.strip(),
-        'susbscribe': args.subscribe.strip()
+        'subscribe': args.subscribe.strip()
     }
     vigiles_request(vgls_chk)
