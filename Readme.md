@@ -414,10 +414,12 @@ Required: ```--download-sbom```, ```--download-sbom-format```, and the vigiles C
 Supported options for each argument are:
 
 * `--download-sbom-format`: `cyclonedx`, `spdx`, and `spdx-lite`
-* `--download-sbom-file-type` for `cyclonedx`: `json` (default) and `xml`
-* `--download-sbom-file-type` for `spdx` and `spdx-lite`: `json` (default), `xml`, `yaml`, `tag`, `xlsx`, `xls`, and `rdfxml`
 * `--download-sbom-version` for `cyclonedx`: `1.7`, `1.6` (default), `1.5`, `1.4`, `1.3`, `1.2`, and `1.1`
-* `--download-sbom-version` for `spdx` and `spdx-lite`: `2.3` (default) and `2.2`
+* `--download-sbom-file-type` for `cyclonedx`: `json` (default) and `xml`
+* `--download-sbom-version` for `spdx` and `spdx-lite`: `3.0.1`, `2.3` (default), and `2.2`
+* `--download-sbom-file-type` for `spdx` and `spdx-lite`:
+  * `3.0.1`: `json-ld`
+  * `2.3` and `2.2`: `json`, `xml`, `yaml`, `tag`, `xlsx`, `xls`, `rdfxml`
 
 
 ### Package Lifecycle Information

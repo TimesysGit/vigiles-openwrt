@@ -51,13 +51,15 @@ def validate_download_options(parser, args):
         args.vigiles_bin = env_vigiles_bin
         download_args['--vigiles-bin'] = args.vigiles_bin
 
-    if not args.download_sbom_file_type:
-        args.download_sbom_file_type = "json"
-
     if not args.download_sbom_version and args.download_sbom_format == "cyclonedx":
         args.download_sbom_version = "1.6"
     elif not args.download_sbom_version and args.download_sbom_format in ("spdx", "spdx-lite"):
         args.download_sbom_version = "2.3"
+
+    if not args.download_sbom_file_type:
+        args.download_sbom_file_type = (
+            "json-ld" if args.download_sbom_version == "3.0.1" else "json"
+        )
 
     missing_required_args = [opt for opt, value in list(download_args.items())[:2] if not value]
     if missing_required_args:
@@ -71,18 +73,20 @@ def validate_download_options(parser, args):
     sbom_file_type = args.download_sbom_file_type.strip()
     sbom_version = args.download_sbom_version.strip()
 
-    allowed_file_types = DOWNLOAD_SBOM_OPTIONS[sbom_format]["file_types"]
-    if sbom_file_type not in allowed_file_types:
-        parser.error(
-            f"argument --download-sbom-file-type: invalid choice: '{sbom_file_type}' "
-            f"for format '{sbom_format}' (choose from {', '.join(sorted(allowed_file_types))})"
-        )
-
-    allowed_versions = DOWNLOAD_SBOM_OPTIONS[sbom_format]["versions"]
+    download_options = DOWNLOAD_SBOM_OPTIONS[sbom_format]
+    allowed_versions = tuple(download_options.keys())
     if sbom_version not in allowed_versions:
         parser.error(
             f"argument --download-sbom-version: invalid choice: '{sbom_version}' "
-            f"for format '{sbom_format}' (choose from {', '.join(sorted(allowed_versions, reverse=True))})"
+            f"for format '{sbom_format}' (choose from {', '.join(allowed_versions)})"
+        )
+
+    allowed_file_types = download_options[sbom_version]
+    if sbom_file_type not in allowed_file_types:
+        parser.error(
+            f"argument --download-sbom-file-type: invalid choice: '{sbom_file_type}' "
+            f"for format '{sbom_format}' and version '{sbom_version}' "
+            f"(choose from {', '.join(allowed_file_types)})"
         )
 
 
@@ -104,7 +108,14 @@ def download_sbom(vgls, result):
 
     sbom_name = vgls['manifest_name']
     download_dir = vgls['odir']
-    suffix_ext = "spdx" if sbom_file_type == "tag" else sbom_file_type
+
+    if sbom_file_type == "tag":
+        suffix_ext = "spdx"
+    elif sbom_file_type == "json-ld":
+        suffix_ext = "json"
+    else:
+        suffix_ext = sbom_file_type
+
     output_path = os.path.join(
         download_dir,
         "%s-%s-%s.%s" % (

@@ -227,13 +227,13 @@ def parse_args():
         choices=DOWNLOAD_SBOM_FORMATS,
     )
     parser.add_argument(
+        '--download-sbom-version',
+        help='SBOM version to download',
+    )
+    parser.add_argument(
         '--download-sbom-file-type',
         help='SBOM file type to download',
         type=str.lower,
-    )
-    parser.add_argument(
-        '--download-sbom-version',
-        help='SBOM version to download',
     )
     args = parser.parse_args()
 

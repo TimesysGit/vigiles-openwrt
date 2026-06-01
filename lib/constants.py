@@ -13,15 +13,22 @@ DOWNLOAD_SBOM_FORMATS = ("cyclonedx", "spdx", "spdx-lite")
 
 DOWNLOAD_SBOM_OPTIONS = {
     "cyclonedx": {
-        "file_types": ("json", "xml"),
-        "versions": ("1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1"),
+        "1.7": ("json", "xml"),
+        "1.6": ("json", "xml"),
+        "1.5": ("json", "xml"),
+        "1.4": ("json", "xml"),
+        "1.3": ("json", "xml"),
+        "1.2": ("json", "xml"),
+        "1.1": ("json", "xml"),
     },
     "spdx": {
-        "file_types": ("json", "xml", "yaml", "tag", "xlsx", "xls", "rdfxml"),
-        "versions": ("2.3", "2.2"),
+        "3.0.1": ("json-ld",),
+        "2.3": ("json", "xml", "yaml", "tag", "xlsx", "xls", "rdfxml"),
+        "2.2": ("json", "xml", "yaml", "tag", "xlsx", "xls", "rdfxml"),
     },
     "spdx-lite": {
-        "file_types": ("json", "xml", "yaml", "tag", "xlsx", "xls", "rdfxml"),
-        "versions": ("2.3", "2.2"),
+        "3.0.1": ("json-ld",),
+        "2.3": ("json", "xml", "yaml", "tag", "xlsx", "xls", "rdfxml"),
+        "2.2": ("json", "xml", "yaml", "tag", "xlsx", "xls", "rdfxml"),
     },
 }
