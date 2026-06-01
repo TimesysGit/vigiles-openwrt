@@ -83,8 +83,7 @@ def _get_pkg_version(mk_info, bdir, makefile_dir):
     elif "PKG_UPSTREAM_VERSION" in mk_info.keys() and mk_info["PKG_UPSTREAM_VERSION"]:
         version = mk_info["PKG_UPSTREAM_VERSION"]
     version = _sanitize_version(version)
-    if "PKG_SOURCE_VERSION" in mk_info.keys() and mk_info["PKG_SOURCE_VERSION"] \
-        and "PKG_SOURCE_DATE" in mk_info.keys() and mk_info["PKG_SOURCE_DATE"]:
+    if version == UNSET and mk_info.get("PKG_SOURCE_VERSION") and mk_info.get("PKG_SOURCE_DATE"):
         version = mk_info["PKG_SOURCE_DATE"] + "-" + mk_info["PKG_SOURCE_VERSION"][:8]
     return version
 
@@ -103,7 +102,7 @@ def _get_pkg_license(primary=None, fallback=None):
     for info in (primary, fallback):
         if not info:
             continue
-        for key in ("SPDX-LICENSE-IDENTIFIER", "PKG_LICENSE", "LICENSE"):
+        for key in ("PKG_LICENSE", "LICENSE"):
             license = info.get(key)
             if license:
                 return _normalize_license(license.strip())
@@ -210,18 +209,6 @@ def _get_pkg_make_info(pkgs, bdir):
 
                 if line == "endef":
                     curr_subpkg = None
-                    continue
-
-                if "SPDX-License-Identifier" in line:
-                    cleaned = (
-                        line.replace("#", "")
-                        .replace("//*", "")
-                        .replace("////", "")
-                        .strip()
-                    )
-                    parts = cleaned.split(":")
-                    if len(parts) >= 2:
-                        mk_info[parts[0].strip().upper()] = parts[1].strip()
                     continue
 
                 if ":=" in line:
@@ -488,16 +475,24 @@ def get_libgcc_info(vgls):
     if not "config-package-libgcc" in vgls["config"]:
         return None
 
-    make_path = os.path.join(vgls["bdir"], "toolchain", "gcc", "common.mk")
     pkg_name, pkg_license, package_supplier = "gcc", UNKNOWN, PACKAGE_SUPPLIER
-    if os.path.exists(make_path):
-        with open(make_path) as mk:
-            mk_info = {}
-            for l in mk.readlines():
-                if l.startswith("PKG_NAME") and len(l.strip().split(":=")) == 2:
-                    pkg_name = l.strip().split(":=")[-1]
-                elif l.startswith("PKG_LICENSE") and len(l.strip().split(":=")) == 2:
-                    pkg_license = l.strip().split(":=")[-1]
+
+    toolchain_make = os.path.join(vgls["bdir"], "package", "libs", "toolchain", "Makefile")
+    make_path = os.path.join(vgls["bdir"], "toolchain", "gcc", "common.mk")
+
+    for makefile in (toolchain_make, make_path):
+        if not os.path.exists(makefile):
+            continue
+
+        with open(makefile) as mk:
+            for line in mk:
+                if line.startswith("PKG_LICENSE") and len(line.strip().split(":=")) == 2:
+                    pkg_license = line.strip().split(":=")[-1]
+                    break
+
+        if pkg_license != UNKNOWN:
+            break
+
     libgcc_info = {
         "name": pkg_name,
         "rawname": "libgcc",

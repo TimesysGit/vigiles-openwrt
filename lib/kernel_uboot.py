@@ -149,27 +149,6 @@ def _get_version_from_makefile(target_path, with_extra=True):
     return version_string
 
 
-def _get_license_from_makefile(target_path):
-    license_string = UNKNOWN
-    makefile_path = os.path.join(target_path, "Makefile")
-    if not os.path.exists(makefile_path):
-        warn("Source directory not found: %s." % makefile_path)
-        return license_string
-    with open(makefile_path) as mk:
-        for l in mk.readlines():
-            if "SPDX-License-Identifier" in l:
-                l = (
-                    l.replace("#", "")
-                        .replace("//*", "")
-                        .replace("////", "")
-                        .strip()
-                )
-                l_split = l.split(":")
-                license_string = l_split[1].strip()
-    license_string = ",".join(license_string.split(" "))
-    return license_string
-
-
 def _get_config_opts(config_file, preamble_length=0):
     config_preamble = []
     config_set = set()
@@ -455,6 +434,24 @@ def _get_uboot_download_location(vgls):
     return UNKNOWN
 
 
+def _get_uboot_license(vgls, makefile_path):
+    makefile_dir = os.path.dirname(makefile_path)
+    if not os.path.exists(makefile_dir):
+        dbg("U-boot license not found.")
+        return UNKNOWN
+
+    try:
+        my_env = os.environ.copy()
+        my_env["TOPDIR"] = vgls["bdir"]
+        my_env["PATH"] = "{}/staging_dir/host/bin:{}".format(my_env["TOPDIR"], my_env["PATH"])
+        pkg_license = get_makefile_variables(makefile_dir, my_env, ["val.PKG_LICENSE"])[0].strip()
+        if pkg_license:
+            return ",".join(pkg_license.split())
+    except Exception:
+        dbg("U-boot license not found.")
+    return UNKNOWN
+
+
 def get_kernel_info(vgls):
     linux_dict = vgls["packages"]["linux"]
 
@@ -509,7 +506,7 @@ def get_uboot_info(vgls):
 
     ver = _get_version_from_makefile(udir, with_extra=False)
     uboot_dict["cpe_id"] = UNKNOWN
-    uboot_dict["license"] = _get_license_from_makefile(udir)
+    uboot_dict["license"] = _get_uboot_license(vgls, AVAILABLE_PKGS.get(u_boot_target, {}).get("makefile", ""))
     uboot_dict["cve_version"] = uboot_dict["version"] = ver
     dbg("U-Boot Version: %s" % ver)
     uboot_dict["makefile"] = os.path.join(udir, "Makefile")
