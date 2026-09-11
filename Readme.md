@@ -447,13 +447,39 @@ The valid values for both ```PKG_LEVEL_OF_SUPPORT``` and the CSV column level_of
 
 For development purposes, some "Expert" options are available.
 These allow for debugging of the metadata that is collected.
-These features are not supported and no documentation is provided for them.
+These features are intended for advanced use and debugging.
 
 **Write Intermediate JSON Files of Collected Metadata**: ```-I, --write-intermediate```
 
 **Enable Debug messages**: ```-D, --enable-debug```
 
 **Generate a SBOM without performing a vulnerability scan**: ```-M, --metadata-only```
+
+#### Queue SBOM Upload and Report Generation
+
+The Vigiles server supports asynchronous SBOM uploads and vulnerability report generation. To submit the
+SBOM upload and report-generation jobs without waiting for them to finish, use the
+following option:
+
+```
+--queue-jobs
+```
+
+Vigiles prints a message confirming that the jobs were submitted and does not wait for them to finish. No report is generated locally.
+
+
+#### Background Job Timeout
+
+When **Queue SBOM Upload and Report Generation** is disabled, Vigiles waits for the
+asynchronous SBOM-upload or report-generation job to finish. To configure the maximum wait time, set:
+
+```
+--timeout 600
+```
+
+The default wait time is 10 minutes. This timeout does not apply when **Queue SBOM
+Upload and Report Generation** is enabled because Vigiles exits immediately after the jobs are submitted.
+
 
 
 ### Other Notes

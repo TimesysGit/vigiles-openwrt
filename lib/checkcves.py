@@ -17,6 +17,7 @@ import urllib.parse
 
 from lib import llapi as ll
 from lib.utils import warn
+from lib.jobs import DEFAULT_JOB_TIMEOUT, wait_for_job
 
 NVD_BASE_URL = "https://nvd.nist.gov/vuln/detail/"
 API_DOC = 'https://vigiles.lynx.com/docs/vigiles_api_key_file.html'
@@ -465,11 +466,10 @@ def vigiles_request(vgls_chk):
     kconfig_path = vgls_chk.get("kconfig", "")
     uconfig_path = vgls_chk.get("uconfig", "")
     upload_only = vgls_chk.get("upload_only", False)
+    queue_jobs = vgls_chk.get("queue_jobs", False)
+    timeout = vgls_chk.get("timeout", DEFAULT_JOB_TIMEOUT)
 
-    if report_path:
-        outfile = open(report_path, "w")
-    else:
-        outfile = None
+    outfile = None
 
     # read or create image manifest
     if manifest_path:
@@ -518,6 +518,7 @@ def vigiles_request(vgls_chk):
         "folder_token": vgls_creds.get("folder", ""),
         "upload_only": upload_only,
         'subfolder_name': subfolder_name,
+        "async": True,
     }
 
     if kernel_config:
@@ -565,9 +566,37 @@ def vigiles_request(vgls_chk):
 
     result = ll.api_post(email, key, resource, request)
     if not result:
-        if outfile:
-            outfile.close()
         sys.exit(1)
+
+    job_id = result.get("job_id")
+
+    if job_id:
+        if queue_jobs:
+            if upload_only:
+                print('Vigiles: SBOM upload job queued successfully.')
+            else:
+                print('Vigiles: SBOM upload and vulnerability report jobs queued successfully.')
+            return result
+
+        job_result = wait_for_job(email, key, job_id, timeout)
+        if upload_only:
+            result = {
+                'manifest_token': job_result.get('manifest_token'),
+                'group_token': job_result.get('group_token'),
+                'folder_token': job_result.get('folder_token'),
+            }
+        else:
+            manifest_token = job_result.get("manifest_token")
+            if not manifest_token:
+                raise Exception('Completed Vigiles job did not return a manifest_token')
+            result = ll.api_get(
+                email, key,
+                "/api/v1/vigiles/manifests/%s/reports/latest" % manifest_token,
+                {'filtered': False},
+            )
+
+    if report_path:
+        outfile = open(report_path, 'w')
 
     # the default list contains a harmless but bogus example CVE ID,
     # don't print it here in case that is confusing.

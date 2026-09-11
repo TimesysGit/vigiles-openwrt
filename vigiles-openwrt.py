@@ -14,45 +14,56 @@
 
 
 """
-usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
-                          [-K LLKEY] [-C LLDASHBOARD] [-U] [-k KCONFIG] [-u UCONFIG]
-                          [-A ADDL] [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME]
+usage: vigiles-openwrt.py [-h] -b BDIR [-o ODIR] [-D] [-I] [-N MANIFEST_NAME] [-K LLKEY] [-C LLDASHBOARD] [-U] [-M] [-k KCONFIG] [-u UCONFIG] [-A ADDL] [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME]
+                          [-e ECOSYSTEMS] [-s SUBSCRIBE] [--kernel-source KDIR] [--uboot-source UDIR] [--download-sbom] [--vigiles-bin VIGILES_BIN] [--download-sbom-format {cyclonedx,spdx,spdx-lite}]
+                          [--download-sbom-version DOWNLOAD_SBOM_VERSION] [--download-sbom-file-type DOWNLOAD_SBOM_FILE_TYPE] [--queue-jobs] [--timeout TIMEOUT]
 
-Arguments:
-  -h, --help                show this help message and exit
-
+optional arguments:
+  -h, --help            show this help message and exit
   -b BDIR, --build BDIR
-                            OpenWrt Build Directory
+                        OpenWrt Build Directory
   -o ODIR, --output ODIR
-                            Vigiles Output Directory
-
-  -D, --enable-debug        Enable Debug Output
+                        Vigiles Output Directory
+  -D, --enable-debug    Enable Debug Output
   -I, --write-intermediate
-                            Save Intermediate JSON Dictionaries
-  -N MANIFEST_REPORT_NAME, --name MANIFEST_REPORT_NAME
-                            Custom Manifest/Report name
+                        Save Intermediate JSON Dictionaries
+  -N MANIFEST_NAME, --name MANIFEST_NAME
+                        Custom Manifest Name
   -K LLKEY, --keyfile LLKEY
-                            Path of Vigiles API key file
+                        Location of Vigiles API key file
   -C LLDASHBOARD, --dashboard-config LLDASHBOARD
-                            Path of Vigiles Dashboard Config file
-  -U, --upload-only         Upload the manifest only; do not generate CVE report.
+                        Location of Vigiles Dashboard Config file
+  -U, --upload-only     Upload the manifest only; do not wait for report.
+  -M, --metadata-only   Only collect metadata, don't run online Check
   -k KCONFIG, --kernel-config KCONFIG
-                            Custom Kernel Config to Use
+                        Custom Kernel Config to Use
   -u UCONFIG, --uboot-config UCONFIG
-                            Custom U-Boot Config to Use
+                        Custom U-Boot Config(s) to Use
   -A ADDL, --additional-packages ADDL
-                            File of Additional Packages to Include
+                        File of Additional Packages to Include
   -E EXCLD, --exclude-packages EXCLD
-                            File of Packages to Exclude
+                        File of Packages to Exclude
   -W WHTLST, --whitelist-cves WHTLST
-                            File of CVEs to Ignore/Whitelist
+                        File of CVEs to Ignore/Whitelist
   -F SUBFOLDER_NAME, --subfolder SUBFOLDER_NAME
-                            Name of subfolder to upload manifest to
-  -M, --metadata-only       Generate a SBOM without performing a vulnerability scan
+                        Name of subfolder to upload to
   -e ECOSYSTEMS, --ecosystems ECOSYSTEMS
-                            Comma separated string of ecosystems that should be used for generating reports
+                        Comma separated string of ecosystems that should be used for generating reports
   -s SUBSCRIBE, --subscribe SUBSCRIBE
-                            Set subscription frequency for sbom report notifications: "none", "daily", "weekly", "monthly"'
+                        Set subscription frequency for sbom report notifications: "none", "daily", "weekly", "monthly"
+  --kernel-source KDIR  Location of custom kernel source directory
+  --uboot-source UDIR   Location of custom uboot source directory
+  --download-sbom       Download Converted SBOM (CycloneDX/SPDX)
+  --vigiles-bin VIGILES_BIN
+                        Path to vigiles CLI binary
+  --download-sbom-format {cyclonedx,spdx,spdx-lite}
+                        SBOM format to download
+  --download-sbom-version DOWNLOAD_SBOM_VERSION
+                        SBOM version to download
+  --download-sbom-file-type DOWNLOAD_SBOM_FILE_TYPE
+                        SBOM file type to download
+  --queue-jobs          Submit jobs and exit immediately without waiting for results.
+  --timeout TIMEOUT     Maximum number of seconds to wait for a background job (default: 600)
 """
 #######################################################################################
 
@@ -69,6 +80,7 @@ from lib.checkcves import vigiles_request
 from lib.clitasks import validate_download_options, download_sbom
 from lib.constants import DOWNLOAD_SBOM_FORMATS
 from lib.kernel_uboot import get_kernel_info, get_uboot_info
+from lib.jobs import DEFAULT_JOB_TIMEOUT
 
 from lib.utils import set_debug
 from lib.utils import dbg, err
@@ -82,7 +94,16 @@ def parse_args():
         if os.path.isfile(config_path):
             return config_path.strip()
         raise argparse.ArgumentTypeError("Invalid value for config %s. Acceptable values are 'auto', 'none' or a valid config file path" % config)
-    
+
+    def positive_int(value):
+        try:
+            value = int(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError("must be a positive integer")
+        if value < 1:
+            raise argparse.ArgumentTypeError("must be a positive integer")
+        return value
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-b",
@@ -235,7 +256,24 @@ def parse_args():
         help='SBOM file type to download',
         type=str.lower,
     )
+    parser.add_argument(
+        '--queue-jobs',
+        dest='queue_jobs',
+        help='Submit jobs and exit immediately without waiting for results.',
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        '--timeout',
+        type=positive_int,
+        default=DEFAULT_JOB_TIMEOUT,
+        help='Maximum number of seconds to wait for a background job '
+        '(default: %d)' % DEFAULT_JOB_TIMEOUT
+    )
     args = parser.parse_args()
+
+    if args.download_sbom and args.queue_jobs:
+        parser.error('--download-sbom and --queue-jobs cannot be used together')
 
     # Validates download-sbom and related args, no-op unless download is requested
     validate_download_options(parser, args)
@@ -250,6 +288,8 @@ def parse_args():
         "llkey": os.path.abspath(args.llkey.strip()) if args.llkey else "",
         "lldashboard": os.path.abspath(args.lldashboard.strip()) if args.lldashboard else "",
         "upload_only": args.upload_only,
+        "queue_jobs": args.queue_jobs,
+        "timeout": args.timeout,
         "kconfig": args.kconfig,
         "uconfig": args.uconfig,
         "addl": os.path.abspath(args.addl.strip()) if args.addl else "",
@@ -345,7 +385,9 @@ def run_check(vgls):
         "uconfig": uconfig_path,
         'subfolder_name': vgls.get('subfolder_name', ''),
         "ecosystems": vgls.get("ecosystems", ""),
-        "subscribe": vgls.get("subscribe")
+        "subscribe": vgls.get("subscribe"),
+        "queue_jobs": vgls.get("queue_jobs", False),
+        "timeout": vgls.get("timeout", DEFAULT_JOB_TIMEOUT),
     }
     return vigiles_request(vgls_chk)
 
@@ -355,7 +397,12 @@ def __main__():
     collect_metadata(vgls)
     write_manifest(vgls)
     if vgls["do_check"]:
-        result = run_check(vgls)
+        try:
+            result = run_check(vgls)
+        except Exception as exc:
+            print("Vigiles ERROR: %s" % exc, file=sys.stderr)
+            sys.exit(1)
+
         if vgls.get("download_sbom"):
             download_sbom(vgls, result)
 
