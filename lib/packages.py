@@ -24,7 +24,8 @@ from .utils import get_makefile_variables
 
 
 EXCLUDE_PKGS = ["toolchain"]
-PACKAGE_SUPPLIER = "Organization: OpenWrt ()"
+PACKAGE_SUPPLIER_BASE = "OpenWrt"
+PACKAGE_SUPPLIER = "Organization: %s ()" % PACKAGE_SUPPLIER_BASE
 AVAILABLE_PKGS = {}
 TOOLCHAIN_PKGS = {}
 ALIAS_PKG_MAP = {}

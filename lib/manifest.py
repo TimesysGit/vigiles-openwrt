@@ -18,6 +18,7 @@ from .utils import mkdirhier
 from .utils import dbg, info, warn
 
 from .amendments import amend_manifest
+from .packages import PACKAGE_SUPPLIER, PACKAGE_SUPPLIER_BASE
 
 
 VIGILES_DEFAULT_DISTRO = "openwrt"
@@ -25,6 +26,47 @@ VIGILES_DEFAULT_IMAGE = "rootfs"
 VIGILES_MANIFEST_VERSION = "1.3"
 VIGILES_OUTPUT_DIR = "vigiles-output"
 VIGILES_MANIFEST_NAME_MAX_LENGTH = 256
+
+
+def _get_firmware_version(vgls, fallback):
+    config = vgls["config"]
+    subtarget = config.get("config-target-subtarget", "generic")
+    libc = config.get("config-libc")
+
+    if libc and libc != "musl" and not config.get("config-external-toolchain"):
+        subtarget += "-" + libc
+
+    profiles_path = os.path.join(
+        vgls["bdir"], config.get("config-binary-folder") or "bin",
+        "targets", config.get("config-target-board", ""), subtarget,
+        "profiles.json",
+    )
+
+    try:
+        with open(profiles_path, encoding="utf-8") as f:
+            metadata = json.load(f)
+    except (OSError, ValueError):
+        return fallback
+
+    version = metadata.get("version_number") if isinstance(metadata, dict) else None
+    return version.strip() if isinstance(version, str) and version.strip() else fallback
+
+
+def _get_config_string(config, key):
+    value = config.get(key)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _get_package_supplier(config):
+    manufacturer = _get_config_string(config, "config-version-manufacturer")
+    manufacturer_url = _get_config_string(config, "config-version-manufacturer-url")
+    if manufacturer is None and manufacturer_url is None:
+        return PACKAGE_SUPPLIER
+
+    return "Organization: %s (%s)" % (
+        manufacturer or PACKAGE_SUPPLIER_BASE,
+        manufacturer_url or "",
+    )
 
 
 def _get_machine_name(vgls):
@@ -68,6 +110,14 @@ def _init_manifest(vgls):
         _name = _boardname
 
     _name = _limit_manifest_name_length(_name, VIGILES_MANIFEST_NAME_MAX_LENGTH)
+    _root_component = {
+        "name": _get_config_string(vgls["config"], "config-version-product") or VIGILES_DEFAULT_IMAGE,
+        "version": (
+            _get_config_string(vgls["config"], "config-version-number")
+            or _get_firmware_version(vgls, _distro_version)
+        ),
+        "package_supplier": PACKAGE_SUPPLIER,
+    }
 
     build_dict = {
         "arch": vgls["config"]["config-arch"],
@@ -80,6 +130,7 @@ def _init_manifest(vgls):
         "machine": _machine,
         "manifest_name": _name,
         "manifest_version": VIGILES_MANIFEST_VERSION,
+        "root_component": _root_component,
         "packages": _stripped_packages(vgls["packages"]),
     }
     return build_dict
@@ -105,6 +156,13 @@ def write_manifest(vgls):
     vgls["manifest_name"] = final["manifest_name"]
 
     amend_manifest(vgls, final)
+
+    package_supplier = _get_package_supplier(vgls["config"])
+    if package_supplier != PACKAGE_SUPPLIER:
+        final["root_component"]["package_supplier"] = package_supplier
+        for package in final["packages"].values():
+            if package.get("package_supplier") == PACKAGE_SUPPLIER:
+                package["package_supplier"] = package_supplier
 
     vgls["manifest"] = _manifest_name(vgls, final)
     vgls["report"] = _report_name(vgls, final)
